@@ -1,0 +1,438 @@
+const SCORING = { win: 3, draw: 1, knockoutProgress: 2, champion: 10 };
+
+const CONFIG = {
+  teamsCsv: './teams.csv',
+  // The site now tries the Netlify OneDrive CSV proxy first, then falls back to local CSVs.
+  // Put your OneDrive share/download URL in the ONEDRIVE_SCORES_CSV_URL environment variable in Netlify.
+  matchesCsv: ['/.netlify/functions/onedrive-scores', './scores.csv', './matches.csv'],
+  probabilitiesCsv: './probabilities.csv',
+  refreshMs: 60 * 1000,
+  displayToday: '2026-06-11T12:00:00Z'
+};
+
+const FALLBACK_CSV = {
+  teamsCsv: "participant,country,code\nMiriam,Morocco,ma\nMiriam,Czechia,cz\nOscar,Canada,ca\nOscar,Saudi Arabia,sa\nMegan,Uruguay,uy\nMegan,Tunisia,tn\nJamie,Belgium,be\nJamie,Jordan,jo\nDennis,Ecuador,ec\nDennis,Scotland,gb-sct\nKatie,Egypt,eg\nKatie,Netherlands,nl\nSacha,Australia,au\nSacha,Croatia,hr\nAly,United States,us\nAly,Uzbekistan,uz\nSimon,Paraguay,py\nSimon,South Africa,za\nConnor,Germany,de\nConnor,Ghana,gh\nGus,France,fr\nGus,Curacao,cw\nNina,Mexico,mx\nNina,Bosnia and Herzegovina,ba\nJB,Portugal,pt\nJB,Iraq,iq\nPravan,Argentina,ar\nPravan,Norway,no\nSam,South Korea,kr\nSam,Austria,at\nEmma,Colombia,co\nEmma,Haiti,ht\nKaro,Japan,jp\nKaro,Sweden,se\nCraig,Switzerland,ch\nCraig,Iran,ir\nSteve,England,gb-eng\nSteve,Cape Verde,cv\nPete,Senegal,sn\nPete,Algeria,dz\nWaj,New Zealand,nz\nWaj,Spain,es\nScott,Brazil,br\nScott,Qatar,qa\nSwareena,Panama,pa\nSwareena,Turkiye,tr\nAndrew,Ivory Coast,ci\nAndrew,DR Congo,cd\n",
+  matchesCsv: "match_id,stage,group,datetime,status,home,away,home_score,away_score,home_red_cards,away_red_cards,venue\n1,Group stage,A,2026-06-11 20:00,finished,South Africa,Mexico,1,2,0,0,\"Estadio Azteca, Mexico City\"\n2,Group stage,A,2026-06-12 03:00,ongoing,South Korea,Czechia,3,1,1,5,\"Estadio Akron, Guadalajara\"\n3,Group stage,B,2026-06-12 20:00,scheduled,Canada,Bosnia and Herzegovina,,,,,\"BMO Field, Toronto\"\n4,Group stage,D,2026-06-13 02:00,scheduled,United States,Paraguay,,,,,\"SoFi Stadium, Inglewood\"\n5,Group stage,B,2026-06-13 20:00,scheduled,Qatar,Switzerland,,,,,\"Levi's Stadium, Santa Clara\"\n6,Group stage,C,2026-06-13 23:00,scheduled,Brazil,Morocco,,,,,\"MetLife Stadium, East Rutherford\"\n7,Group stage,C,2026-06-14 02:00,scheduled,Haiti,Scotland,,,,,\"Gillette Stadium, Foxborough\"\n8,Group stage,D,2026-06-14 05:00,scheduled,Australia,Turkiye,,,,,\"BC Place, Vancouver\"\n9,Group stage,E,2026-06-14 18:00,scheduled,Germany,Curacao,,,,,\"NRG Stadium, Houston\"\n10,Group stage,F,2026-06-14 21:00,scheduled,Netherlands,Japan,,,,,\"AT&T Stadium, Arlington\"\n11,Group stage,E,2026-06-15 00:00,scheduled,Ivory Coast,Ecuador,,,,,\"Lincoln Financial Field, Philadelphia\"\n12,Group stage,F,2026-06-15 03:00,scheduled,Sweden,Tunisia,,,,,\"Estadio BBVA, Monterrey\"\n13,Group stage,H,2026-06-15 17:00,scheduled,Spain,Cape Verde,,,,,\"Mercedes-Benz Stadium, Atlanta\"\n14,Group stage,G,2026-06-15 20:00,scheduled,Belgium,Egypt,,,,,\"Lumen Field, Seattle\"\n15,Group stage,H,2026-06-15 23:00,scheduled,Saudi Arabia,Uruguay,,,,,\"Hard Rock Stadium, Miami\"\n16,Group stage,G,2026-06-16 02:00,scheduled,Iran,New Zealand,,,,,\"SoFi Stadium, Inglewood\"\n17,Group stage,I,2026-06-16 20:00,scheduled,France,Senegal,,,,,\"MetLife Stadium, East Rutherford\"\n18,Group stage,I,2026-06-16 23:00,scheduled,Iraq,Norway,,,,,\"Gillette Stadium, Foxborough\"\n19,Group stage,J,2026-06-17 02:00,scheduled,Argentina,Algeria,,,,,\"Arrowhead Stadium, Kansas City\"\n20,Group stage,J,2026-06-17 05:00,scheduled,Austria,Jordan,,,,,\"Levi's Stadium, Santa Clara\"\n21,Group stage,K,2026-06-17 18:00,scheduled,Portugal,DR Congo,,,,,\"NRG Stadium, Houston\"\n22,Group stage,L,2026-06-17 21:00,scheduled,England,Croatia,,,,,\"AT&T Stadium, Arlington\"\n23,Group stage,L,2026-06-18 00:00,scheduled,Ghana,Panama,,,,,\"BMO Field, Toronto\"\n24,Group stage,K,2026-06-18 03:00,scheduled,Uzbekistan,Colombia,,,,,\"Estadio Azteca, Mexico City\"\n25,Group stage,A,2026-06-18 17:00,scheduled,Czechia,South Africa,,,,,\"Mercedes-Benz Stadium, Atlanta\"\n26,Group stage,B,2026-06-18 20:00,scheduled,Bosnia and Herzegovina,Switzerland,,,,,\"SoFi Stadium, Inglewood\"\n27,Group stage,B,2026-06-18 23:00,scheduled,Canada,Qatar,,,,,\"BC Place, Vancouver\"\n28,Group stage,A,2026-06-19 02:00,scheduled,Mexico,South Korea,,,,,\"Estadio Akron, Guadalajara\"\n29,Group stage,D,2026-06-19 20:00,scheduled,United States,Australia,,,,,\"Lumen Field, Seattle\"\n30,Group stage,C,2026-06-19 23:00,scheduled,Scotland,Morocco,,,,,\"Gillette Stadium, Foxborough\"\n31,Group stage,C,2026-06-20 02:00,scheduled,Brazil,Haiti,,,,,\"Lincoln Financial Field, Philadelphia\"\n32,Group stage,D,2026-06-20 04:00,scheduled,Turkiye,Paraguay,,,,,\"Levi's Stadium, Santa Clara\"\n33,Group stage,F,2026-06-20 18:00,scheduled,Netherlands,Sweden,,,,,\"NRG Stadium, Houston\"\n34,Group stage,E,2026-06-20 21:00,scheduled,Germany,Ivory Coast,,,,,\"BMO Field, Toronto\"\n35,Group stage,E,2026-06-21 01:00,scheduled,Ecuador,Curacao,,,,,\"Arrowhead Stadium, Kansas City\"\n36,Group stage,F,2026-06-21 05:00,scheduled,Tunisia,Japan,,,,,\"Estadio BBVA, Monterrey\"\n37,Group stage,H,2026-06-21 17:00,scheduled,Spain,Saudi Arabia,,,,,\"Mercedes-Benz Stadium, Atlanta\"\n38,Group stage,G,2026-06-21 20:00,scheduled,Belgium,Iran,,,,,\"SoFi Stadium, Inglewood\"\n39,Group stage,H,2026-06-21 23:00,scheduled,Uruguay,Cape Verde,,,,,\"Hard Rock Stadium, Miami\"\n40,Group stage,G,2026-06-22 02:00,scheduled,New Zealand,Egypt,,,,,\"BC Place, Vancouver\"\n41,Group stage,J,2026-06-22 18:00,scheduled,Argentina,Austria,,,,,\"AT&T Stadium, Arlington\"\n42,Group stage,I,2026-06-22 22:00,scheduled,France,Iraq,,,,,\"Lincoln Financial Field, Philadelphia\"\n43,Group stage,I,2026-06-23 01:00,scheduled,Norway,Senegal,,,,,\"MetLife Stadium, East Rutherford\"\n44,Group stage,J,2026-06-23 04:00,scheduled,Jordan,Algeria,,,,,\"Levi's Stadium, Santa Clara\"\n45,Group stage,K,2026-06-23 18:00,scheduled,Portugal,Uzbekistan,,,,,\"NRG Stadium, Houston\"\n46,Group stage,L,2026-06-23 21:00,scheduled,England,Ghana,,,,,\"Gillette Stadium, Foxborough\"\n47,Group stage,L,2026-06-24 00:00,scheduled,Panama,Croatia,,,,,\"BMO Field, Toronto\"\n48,Group stage,K,2026-06-24 03:00,scheduled,Colombia,DR Congo,,,,,\"Estadio Akron, Guadalajara\"\n49,Group stage,B,2026-06-24 20:00,scheduled,Switzerland,Canada,,,,,\"BC Place, Vancouver\"\n50,Group stage,B,2026-06-24 20:00,scheduled,Bosnia and Herzegovina,Qatar,,,,,\"Lumen Field, Seattle\"\n51,Group stage,C,2026-06-24 23:00,scheduled,Scotland,Brazil,,,,,\"Hard Rock Stadium, Miami\"\n52,Group stage,C,2026-06-24 23:00,scheduled,Morocco,Haiti,,,,,\"Mercedes-Benz Stadium, Atlanta\"\n53,Group stage,A,2026-06-25 02:00,scheduled,Czechia,Mexico,,,,,\"Estadio Azteca, Mexico City\"\n54,Group stage,A,2026-06-25 02:00,scheduled,South Africa,South Korea,,,,,\"Estadio BBVA, Monterrey\"\n55,Group stage,E,2026-06-25 21:00,scheduled,Ecuador,Germany,,,,,\"MetLife Stadium, East Rutherford\"\n56,Group stage,E,2026-06-25 21:00,scheduled,Curacao,Ivory Coast,,,,,\"Lincoln Financial Field, Philadelphia\"\n57,Group stage,F,2026-06-26 00:00,scheduled,Tunisia,Netherlands,,,,,\"Arrowhead Stadium, Kansas City\"\n58,Group stage,F,2026-06-26 00:00,scheduled,Japan,Sweden,,,,,\"AT&T Stadium, Arlington\"\n59,Group stage,D,2026-06-26 03:00,scheduled,Turkiye,United States,,,,,\"SoFi Stadium, Inglewood\"\n60,Group stage,D,2026-06-26 03:00,scheduled,Paraguay,Australia,,,,,\"Levi's Stadium, Santa Clara\"\n61,Group stage,I,2026-06-26 20:00,scheduled,Norway,France,,,,,\"Gillette Stadium, Foxborough\"\n62,Group stage,I,2026-06-26 20:00,scheduled,Senegal,Iraq,,,,,\"BMO Field, Toronto\"\n63,Group stage,H,2026-06-27 01:00,scheduled,Uruguay,Spain,,,,,\"Estadio Akron, Guadalajara\"\n64,Group stage,H,2026-06-27 01:00,scheduled,Cape Verde,Saudi Arabia,,,,,\"NRG Stadium, Houston\"\n65,Group stage,G,2026-06-27 04:00,scheduled,New Zealand,Belgium,,,,,\"BC Place, Vancouver\"\n66,Group stage,G,2026-06-27 04:00,scheduled,Egypt,Iran,,,,,\"Lumen Field, Seattle\"\n67,Group stage,L,2026-06-27 22:00,scheduled,Panama,England,,,,,\"MetLife Stadium, East Rutherford\"\n68,Group stage,L,2026-06-27 22:00,scheduled,Croatia,Ghana,,,,,\"Lincoln Financial Field, Philadelphia\"\n69,Group stage,K,2026-06-28 00:30,scheduled,Colombia,Portugal,,,,,\"Hard Rock Stadium, Miami\"\n70,Group stage,K,2026-06-28 00:30,scheduled,DR Congo,Uzbekistan,,,,,\"Mercedes-Benz Stadium, Atlanta\"\n71,Group stage,J,2026-06-28 03:00,scheduled,Jordan,Argentina,,,,,\"Arrowhead Stadium, Kansas City\"\n72,Group stage,J,2026-06-28 03:00,scheduled,Algeria,Austria,,,,,\"AT&T Stadium, Arlington\"\n73,Round of 32,,2026-06-28 20:00,scheduled,2nd Group A,2nd Group B,,,,,\"SoFi Stadium, Inglewood\"\n74,Round of 32,,2026-06-29 18:00,scheduled,1st Group C,2nd Group F,,,,,\"NRG Stadium, Houston\"\n75,Round of 32,,2026-06-29 21:30,scheduled,1st Group E,3rd place finisher,,,,,\"Gillette Stadium, Foxborough\"\n76,Round of 32,,2026-06-30 02:00,scheduled,1st Group F,2nd Group C,,,,,\"Estadio BBVA, Monterrey\"\n77,Round of 32,,2026-06-30 18:00,scheduled,2nd Group E,2nd Group I,,,,,\"AT&T Stadium, Arlington\"\n78,Round of 32,,2026-06-30 22:00,scheduled,1st Group I,3rd place finisher,,,,,\"MetLife Stadium, East Rutherford\"\n79,Round of 32,,2026-07-01 02:00,scheduled,1st Group A,3rd place finisher,,,,,\"Estadio Azteca, Mexico City\"\n80,Round of 32,,2026-07-01 17:00,scheduled,1st Group L,3rd place finisher,,,,,\"Mercedes-Benz Stadium, Atlanta\"\n81,Round of 32,,2026-07-01 21:00,scheduled,1st Group G,3rd place finisher,,,,,\"Lumen Field, Seattle\"\n82,Round of 32,,2026-07-02 01:00,scheduled,1st Group D,3rd place finisher,,,,,\"Levi's Stadium, Santa Clara\"\n83,Round of 32,,2026-07-02 20:00,scheduled,1st Group H,2nd Group J,,,,,\"SoFi Stadium, Inglewood\"\n84,Round of 32,,2026-07-03 00:00,scheduled,2nd Group K,2nd Group L,,,,,\"BMO Field, Toronto\"\n85,Round of 32,,2026-07-03 04:00,scheduled,1st Group B,3rd place finisher,,,,,\"BC Place, Vancouver\"\n86,Round of 32,,2026-07-03 19:00,scheduled,2nd Group D,2nd Group G,,,,,\"AT&T Stadium, Arlington\"\n87,Round of 32,,2026-07-03 23:00,scheduled,1st Group J,2nd Group H,,,,,\"Hard Rock Stadium, Miami\"\n88,Round of 32,,2026-07-04 02:30,scheduled,1st Group K,3rd place finisher,,,,,\"Arrowhead Stadium, Kansas City\"\n89,Round of 16,,2026-07-04 18:00,scheduled,Winner R32 M1,Winner R32 M3,,,,,\"NRG Stadium, Houston\"\n90,Round of 16,,2026-07-04 22:00,scheduled,Winner R32 M2,Winner R32 M5,,,,,\"Lincoln Financial Field, Philadelphia\"\n91,Round of 16,,2026-07-05 21:00,scheduled,Winner R32 M4,Winner R32 M6,,,,,\"MetLife Stadium, East Rutherford\"\n92,Round of 16,,2026-07-06 01:00,scheduled,Winner R32 M7,Winner R32 M8,,,,,\"Estadio Azteca, Mexico City\"\n93,Round of 16,,2026-07-06 20:00,scheduled,Winner R32 M11,Winner R32 M12,,,,,\"AT&T Stadium, Arlington\"\n94,Round of 16,,2026-07-07 01:00,scheduled,Winner R32 M9,Winner R32 M10,,,,,\"Lumen Field, Seattle\"\n95,Round of 16,,2026-07-07 17:00,scheduled,Winner R32 M14,Winner R32 M16,,,,,\"Mercedes-Benz Stadium, Atlanta\"\n96,Round of 16,,2026-07-07 21:00,scheduled,Winner R32 M13,Winner R32 M15,,,,,\"BC Place, Vancouver\"\n97,Quarter-final,,2026-07-09 21:00,scheduled,Winner R16 M1,Winner R16 M2,,,,,\"Gillette Stadium, Foxborough\"\n98,Quarter-final,,2026-07-10 20:00,scheduled,Winner R16 M5,Winner R16 M6,,,,,\"SoFi Stadium, Inglewood\"\n99,Quarter-final,,2026-07-11 22:00,scheduled,Winner R16 M3,Winner R16 M4,,,,,\"Hard Rock Stadium, Miami\"\n100,Quarter-final,,2026-07-12 02:00,scheduled,Winner R16 M7,Winner R16 M8,,,,,\"Arrowhead Stadium, Kansas City\"\n101,Semi-final,,2026-07-14 20:00,scheduled,Winner QF1,Winner QF2,,,,,\"AT&T Stadium, Arlington\"\n102,Semi-final,,2026-07-15 20:00,scheduled,Winner QF3,Winner QF4,,,,,\"Mercedes-Benz Stadium, Atlanta\"\n103,Third-place match,,2026-07-18 22:00,scheduled,Loser SF1,Loser SF2,,,,,\"Hard Rock Stadium, Miami\"\n104,Final,,2026-07-19 20:00,scheduled,Winner SF1,Winner SF2,,,,,\"MetLife Stadium, East Rutherford\"\n",
+  probabilitiesCsv: "country,probability\nMorocco,2\nCzechia,0\nCanada,0\nSaudi Arabia,0\nUruguay,3\nTunisia,0\nBelgium,4\nJordan,0\nEcuador,0\nScotland,0\nEgypt,0\nNetherlands,5\nAustralia,0\nCroatia,2.5\nUnited States,1.2\nUzbekistan,0\nParaguay,0\nSouth Africa,0\nGermany,7\nGhana,0.4\nFrance,12\nCuracao,0\nMexico,1.2\nBosnia and Herzegovina,0\nPortugal,6\nIraq,0\nArgentina,13\nNorway,0\nSouth Korea,0\nAustria,0\nColombia,2\nHaiti,0\nJapan,1.5\nSweden,0\nSwitzerland,0\nIran,0\nEngland,9\nCape Verde,0\nSenegal,0.8\nAlgeria,0\nNew Zealand,0\nSpain,8\nBrazil,11\nQatar,0\nPanama,0\nTurkiye,0\nIvory Coast,0\nDR Congo,0\n"
+};
+
+
+const NAME_ALIASES = {
+  'Czech Republic': 'Czechia',
+  'Congo DR': 'DR Congo',
+  'Democratic Republic of Congo': 'DR Congo',
+  'Cote dIvoire': 'Ivory Coast',
+  "Cote d'Ivoire": 'Ivory Coast',
+  'Côte d’Ivoire': 'Ivory Coast',
+  'USA': 'United States',
+  'US': 'United States',
+  'Korea Republic': 'South Korea',
+  'Republic of Korea': 'South Korea',
+  'Türkiye': 'Turkiye',
+  'Turkey': 'Turkiye',
+  'Curaçao': 'Curacao',
+  'Bosnia-Herzegovina': 'Bosnia and Herzegovina',
+  'KOR': 'South Korea',
+  'MEX': 'Mexico',
+  'RSA': 'South Africa'
+};
+
+let state = {
+  participants: [],
+  teams: [],
+  teamOwner: {},
+  teamCode: {},
+  matches: [],
+  odds: {}
+};
+
+function normalizeName(name) {
+  const cleaned = String(name || '').trim();
+  return NAME_ALIASES[cleaned] || cleaned;
+}
+
+function flag(code) {
+  return `https://flagcdn.com/w80/${String(code || '').toLowerCase()}.png`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+}
+
+function flagEmoji(code) {
+  const cc = String(code || '').trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(cc)) return '🏳️';
+  return cc.replace(/./g, char => String.fromCodePoint(127397 + char.charCodeAt(0)));
+}
+
+function flagMarkup(code, teamName) {
+  const safeName = escapeHtml(teamName || 'team');
+  const safeCode = String(code || '').toLowerCase();
+  return `<span class="flag-wrap"><img src="${flag(safeCode)}" alt="${safeName} flag" loading="lazy" onerror="this.style.display='none'"><span class="flag-emoji" aria-hidden="true">${flagEmoji(safeCode)}</span></span>`;
+}
+
+function cacheBust(url) {
+  const joiner = url.includes('?') ? '&' : '?';
+  return `${url}${joiner}v=${Date.now()}`;
+}
+
+async function fetchText(url) {
+  const response = await fetch(cacheBust(url), { cache: 'no-store' });
+  if (!response.ok) throw new Error(`${url} returned ${response.status}`);
+  return response.text();
+}
+
+async function fetchCsvOrFallback(urls, fallbackText) {
+  const sources = Array.isArray(urls) ? urls : [urls];
+  const errors = [];
+  for (const url of sources) {
+    try {
+      const text = await fetchText(url);
+      if (text && text.trim()) return text;
+      errors.push(`${url} was empty`);
+    } catch (error) {
+      errors.push(`${url}: ${error.message}`);
+    }
+  }
+  console.warn(`Using embedded fallback after CSV source errors: ${errors.join(' | ')}`);
+  return fallbackText;
+}
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let value = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    const next = text[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        value += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      row.push(value.trim());
+      value = '';
+    } else if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && next === '\n') i += 1;
+      row.push(value.trim());
+      if (row.some(cell => cell !== '')) rows.push(row);
+      row = [];
+      value = '';
+    } else {
+      value += char;
+    }
+  }
+
+  if (value || row.length) {
+    row.push(value.trim());
+    if (row.some(cell => cell !== '')) rows.push(row);
+  }
+
+  if (!rows.length) return [];
+  const headers = rows[0].map(header => header.trim().toLowerCase());
+  return rows.slice(1).map(cells => {
+    const item = {};
+    headers.forEach((header, index) => {
+      item[header] = (cells[index] || '').trim();
+    });
+    return item;
+  });
+}
+
+function numberOrNull(value) {
+  if (value === undefined || value === null || String(value).trim() === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function numberOrZero(value) {
+  const n = numberOrNull(value);
+  return n === null ? 0 : n;
+}
+
+function normalizeStatus(status, homeScore, awayScore) {
+  const s = String(status || '').trim().toUpperCase();
+  if (['FINISHED', 'FT', 'FULL_TIME', 'COMPLETED', 'ENDED', 'PLAYED', 'FINAL'].includes(s)) return 'FINISHED';
+  if (['LIVE', 'IN_PLAY', 'PLAYING', 'ONGOING', 'IN PROGRESS', 'IN_PROGRESS', 'CURRENTLY ONGOING', '1H', '2H', 'HT'].includes(s)) return 'LIVE';
+  if (!s && homeScore !== null && awayScore !== null) return 'FINISHED';
+  return 'SCHEDULED';
+}
+
+function parseDateTime(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(raw)) return `${raw.replace(' ', 'T')}Z`;
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(raw)) return `${raw}Z`;
+  return raw;
+}
+
+function buildParticipants(teamRows) {
+  const byPerson = new Map();
+  const teams = [];
+
+  for (const row of teamRows) {
+    const participant = row.participant || row.colleague || row.name || '';
+    const country = normalizeName(row.country || row.team || row.nation || '');
+    const code = row.code || row.flag_code || row.flag || '';
+    if (!participant || !country) continue;
+
+    const team = { name: country, code };
+    if (!byPerson.has(participant)) byPerson.set(participant, []);
+    byPerson.get(participant).push(team);
+    teams.push({ ...team, participant });
+  }
+
+  return {
+    participants: Array.from(byPerson.entries()).map(([participant, personTeams]) => ({ participant, teams: personTeams })),
+    teams
+  };
+}
+
+function normalizeMatches(rows) {
+  return rows.map(row => {
+    const home = normalizeName(row.home || row.home_team || row.team1 || row.team_a || '');
+    const away = normalizeName(row.away || row.away_team || row.team2 || row.team_b || '');
+    const homeScore = numberOrNull(row.home_score || row.homescore || row.home_goals || row.homegoals);
+    const awayScore = numberOrNull(row.away_score || row.awayscore || row.away_goals || row.awaygoals);
+    const status = normalizeStatus(row.status || row.match_status || row.state, homeScore, awayScore);
+    const utcDate = parseDateTime(row.datetime || row.date_time || row.kickoff || row.date || row.time || '');
+    const homeRed = numberOrZero(row.home_red_cards || row.home_red || row.red_cards_home || row.home_rc);
+    const awayRed = numberOrZero(row.away_red_cards || row.away_red || row.red_cards_away || row.away_rc);
+
+    return {
+      home,
+      away,
+      homeScore,
+      awayScore,
+      status,
+      utcDate,
+      redCards: { [home]: homeRed, [away]: awayRed }
+    };
+  }).filter(match => match.home && match.away);
+}
+
+function normalizeOdds(rows) {
+  return Object.fromEntries(rows.map(row => {
+    const country = normalizeName(row.country || row.team || row.nation || '');
+    const probability = numberOrZero(row.probability || row.percent || row.win_probability || row.odds);
+    return [country, probability];
+  }).filter(([country]) => country));
+}
+
+function allTeams() {
+  return state.teams;
+}
+
+function refreshLookups() {
+  state.teamOwner = Object.fromEntries(state.teams.map(team => [team.name, team.participant]));
+  state.teamCode = Object.fromEntries(state.teams.map(team => [team.name, team.code]));
+}
+
+async function loadData() {
+  const errors = [];
+
+  try {
+    const teamRows = parseCsv(await fetchCsvOrFallback(CONFIG.teamsCsv, FALLBACK_CSV.teamsCsv));
+    const built = buildParticipants(teamRows);
+    state.participants = built.participants;
+    state.teams = built.teams;
+    refreshLookups();
+  } catch (error) {
+    errors.push(error.message);
+  }
+
+  try {
+    state.matches = normalizeMatches(parseCsv(await fetchCsvOrFallback(CONFIG.matchesCsv, FALLBACK_CSV.matchesCsv)));
+  } catch (error) {
+    errors.push(error.message);
+    state.matches = [];
+  }
+
+  try {
+    state.odds = normalizeOdds(parseCsv(await fetchCsvOrFallback(CONFIG.probabilitiesCsv, FALLBACK_CSV.probabilitiesCsv)));
+  } catch (error) {
+    errors.push(error.message);
+    state.odds = {};
+  }
+
+  render(errors);
+}
+
+function compute(matches, odds) {
+  const stats = Object.fromEntries(allTeams().map(team => [team.name, {
+    ...team,
+    points: 0,
+    wins: 0,
+    draws: 0,
+    redCards: 0,
+    probability: odds[team.name] || 0,
+    played: 0
+  }]));
+
+  for (const match of matches.filter(match => ['FINISHED', 'LIVE'].includes(match.status))) {
+    const home = stats[match.home];
+    const away = stats[match.away];
+    if (!home || !away) continue;
+
+    home.redCards += match.redCards[match.home] || 0;
+    away.redCards += match.redCards[match.away] || 0;
+
+    if (match.status !== 'FINISHED' || match.homeScore === null || match.awayScore === null) continue;
+
+    home.played += 1;
+    away.played += 1;
+
+    if (match.homeScore > match.awayScore) {
+      home.points += SCORING.win;
+      home.wins += 1;
+    } else if (match.awayScore > match.homeScore) {
+      away.points += SCORING.win;
+      away.wins += 1;
+    } else {
+      home.points += SCORING.draw;
+      away.points += SCORING.draw;
+      home.draws += 1;
+      away.draws += 1;
+    }
+  }
+
+  const people = state.participants.map(person => {
+    const teams = person.teams.map(team => stats[team.name]).filter(Boolean);
+    return {
+      participant: person.participant,
+      teams,
+      points: teams.reduce((sum, team) => sum + team.points, 0),
+      redCards: teams.reduce((sum, team) => sum + team.redCards, 0),
+      probability: teams.reduce((sum, team) => sum + team.probability, 0)
+    };
+  }).sort((a, b) => b.points - a.points || a.redCards - b.redCards || b.probability - a.probability);
+
+  return { stats: Object.values(stats).sort((a, b) => b.points - a.points || b.probability - a.probability), people };
+}
+
+function colleagueLine(teamName) {
+  const owner = state.teamOwner[teamName];
+  return owner ? `<span class="colleague">${owner}</span>` : '<span class="colleague">Unassigned/TBC</span>';
+}
+
+function parseMatchDate(value) {
+  if (!value) return new Date(NaN);
+  if (value instanceof Date) return value;
+  const text = String(value).trim();
+  const isoLike = text.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+  if (isoLike) {
+    const [, year, month, day, hour, minute] = isoLike;
+    return new Date(`${year}-${month}-${day}T${hour}:${minute}:00Z`);
+  }
+  return new Date(text);
+}
+
+function formatDateTime(value) {
+  const d = parseMatchDate(value);
+  if (Number.isNaN(d.getTime())) return 'Date TBC';
+  const when = d.toLocaleString('en-GB', {
+    timeZone: 'UTC',
+    weekday: 'short',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+  return `${when} GMT`;
+}
+
+function formatDateOnly(value) {
+  const d = parseMatchDate(value);
+  if (Number.isNaN(d.getTime())) return 'Date TBC';
+  return d.toLocaleDateString('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function teamBlock(teamName) {
+  const code = state.teamCode[teamName] || '';
+  const owner = state.teamOwner[teamName] || 'Unassigned/TBC';
+  return `<span class="team-side"><span class="country">${escapeHtml(teamName)}</span>${flagMarkup(code, teamName)}<span class="colleague">${escapeHtml(owner)}</span></span>`;
+}
+
+function renderMatch(match, upcoming = false) {
+  const scoreOrTime = upcoming
+    ? `<span class="fixture-time"><span>Kick-off</span>${formatDateTime(match.utcDate)}</span>`
+    : `<b class="score-number">${match.homeScore}-${match.awayScore}</b>`;
+  const statusLabel = match.status === 'LIVE' ? 'Ongoing' : match.status === 'FINISHED' ? 'Finished' : 'Scheduled';
+  const homeReds = match.redCards?.[match.home] || 0;
+  const awayReds = match.redCards?.[match.away] || 0;
+
+  return `<article class="match ${upcoming ? 'upcoming-match' : 'result-match'} ${match.status === 'LIVE' ? 'live-match' : ''}">
+    <div class="match-meta">${upcoming ? 'Upcoming fixture' : formatDateOnly(match.utcDate)} · ${escapeHtml(statusLabel)}</div>
+    <div class="score">
+      ${teamBlock(match.home)}
+      ${scoreOrTime}
+      ${teamBlock(match.away)}
+    </div>
+    ${upcoming ? '' : `<div class="match-meta red-card-line">Red cards: ${escapeHtml(match.home)} ${homeReds} · ${escapeHtml(match.away)} ${awayReds}</div>`}
+  </article>`;
+}
+
+function setHtml(id, html) {
+  const element = document.getElementById(id);
+  if (element) element.innerHTML = html;
+}
+
+function setText(id, text) {
+  const element = document.getElementById(id);
+  if (element) element.textContent = text;
+}
+
+function render(errors = []) {
+  const { stats, people } = compute(state.matches, state.odds);
+  const hasPeople = people.length > 0;
+
+  setText('lastUpdated', `Updated ${formatDateOnly(CONFIG.displayToday)} at ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`);
+  setText('dataSource', errors.length ? `Check CSV files: ${errors.join(' | ')}` : '');
+  setText('potLeader', hasPeople && people[0].points > 0 ? `${people[0].participant} leads` : 'No points yet');
+
+  setHtml('leaderboard', hasPeople
+    ? people.slice(0, 7).map(person => `<li><b>${person.participant}</b> · ${person.points} pts · ${person.teams.map(team => team.name).join(' / ')}</li>`).join('')
+    : '<li>Add teams to teams.csv</li>');
+
+  const low = hasPeople ? [...people].sort((a, b) => a.points - b.points || b.redCards - a.redCards)[0] : null;
+  const reds = hasPeople ? [...people].sort((a, b) => b.redCards - a.redCards)[0] : null;
+  const likely = hasPeople ? [...people].sort((a, b) => b.probability - a.probability)[0] : null;
+
+  setHtml('leastPoints', low ? `<div class="metric">${low.points}</div><div class="sub">${low.participant}</div><p>${low.teams.map(team => team.name).join(' + ')}</p>` : '<p>Add teams to teams.csv</p>');
+  setHtml('redCards', reds ? `<div class="metric">${reds.redCards}</div><div class="sub">${reds.participant}</div><p>Discipline danger zone.</p>` : '<p>Add matches to matches.csv</p>');
+  setHtml('mostLikely', likely ? `<div class="metric">${likely.probability.toFixed(1)}%</div><div class="sub">${likely.participant}</div><p>Combined outright probability.</p>` : '<p>Add probabilities to probabilities.csv</p>');
+
+  setHtml('cards', state.participants.map(person => `<article class="person"><h3>${escapeHtml(person.participant)}</h3><div class="teams">${person.teams.map(team => `<div class="team"><span class="team-name">${flagMarkup(team.code, team.name)}<span>${escapeHtml(team.name)}</span></span><span class="pill">${(state.odds[team.name] || 0).toFixed(0)}%</span></div>`).join('')}</div></article>`).join(''));
+
+  setHtml('teamTable', `<div class="row header"><span></span><span>Team</span><span>Pts</span><span>RC</span><span>Odds</span></div>` + stats.map(team => `<div class="row"><span class="table-flag">${flagMarkup(team.code, team.name)}</span><b>${escapeHtml(team.name)}</b><span>${team.points}</span><span>${team.redCards}</span><span>${team.probability}%</span></div>`).join(''));
+
+  const results = state.matches
+    .filter(match => ['FINISHED', 'LIVE'].includes(match.status) && match.homeScore !== null && match.awayScore !== null)
+    .sort((a, b) => {
+      if (a.status === 'LIVE' && b.status !== 'LIVE') return -1;
+      if (b.status === 'LIVE' && a.status !== 'LIVE') return 1;
+      return parseMatchDate(b.utcDate) - parseMatchDate(a.utcDate);
+    })
+    .slice(0, 6);
+  const upcoming = state.matches
+    .filter(match => match.status === 'SCHEDULED')
+    .sort((a, b) => parseMatchDate(a.utcDate || '9999-12-31') - parseMatchDate(b.utcDate || '9999-12-31'))
+    .slice(0, 3);
+
+  setHtml('results', results.map(match => renderMatch(match)).join('') || '<p class="empty-state">No results yet</p>');
+  setHtml('upcoming', upcoming.map(match => renderMatch(match, true)).join('') || '<p class="empty-state">Upcoming fixtures are not available yet</p>');
+}
+
+const refreshButton = document.getElementById('refreshBtn');
+if (refreshButton) refreshButton.addEventListener('click', loadData);
+
+loadData();
+setInterval(loadData, CONFIG.refreshMs);

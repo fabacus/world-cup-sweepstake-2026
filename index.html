@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fabacus World Cup Sweepstake</title>
+  <link rel="preconnect" href="https://flagcdn.com" crossorigin>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="grain"></div>
+  <header class="hero">
+    <nav><span class="tiny">Fabacus</span><button id="refreshBtn">Refresh CSV data</button></nav>
+    <div class="hero-grid">
+      <div>
+        <p class="kicker">World Cup 2026</p>
+        <h1>Knockout sweepstake</h1>
+      </div>
+      <div class="ticket-card">
+        <span>WINNER TAKES ALL</span>
+        <strong id="potLeader">Loading...</strong>
+        <small id="lastUpdated">Waiting for first update</small>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="results-strip top-results">
+      <div class="section-title">
+        <h2>Most recent game results</h2>
+        <p id="dataSource">Loading local CSV files...</p>
+      </div>
+      <div id="results" class="results"></div>
+    </section>
+
+    <section class="results-strip upcoming-strip">
+      <div class="section-title">
+        <h2>Next 3 games</h2>
+        <p><a class="fifa-link" href="https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/scores-fixtures?country=GB&wtw-filter=ALL" target="_blank" rel="noopener">See full detail of matches here</a></p>
+      </div>
+      <div id="upcoming" class="results"></div>
+    </section>
+
+    <section class="widgets">
+      <article class="widget feature"><span class="label">Leaderboard</span><ol id="leaderboard"></ol></article>
+      <article class="widget"><span class="label">Least points</span><div id="leastPoints"></div></article>
+      <article class="widget"><span class="label">Most red cards</span><div id="redCards"></div></article>
+      <article class="widget"><span class="label">Most likely to win</span><div id="mostLikely"></div></article>
+    </section>
+
+    <section class="panel">
+      <div class="section-title"><h2>Participants & teams</h2></div>
+      <div id="cards" class="cards"></div>
+    </section>
+
+    <section class="panel split">
+      <div>
+        <div class="section-title"><h2>Knockout progress</h2></div>
+        <div id="teamTable" class="table"></div>
+      </div>
+      <aside class="rules">
+        <h3>Points system</h3>
+        <p><b>3</b> win, <b>1</b> draw, <b>+2</b> knockout progression, <b>+10</b> champion. Red cards break ties against you.</p>
+      </aside>
+    </section>
+  </main>
+
+  <footer>Built for the Fabacus WC Sweepstake by Miriam</footer>
+  <script src="app.js"></script>
+</body>
+</html>
