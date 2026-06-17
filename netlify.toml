@@ -1,1 +1,10 @@
-# Static CSV version: no Netlify Functions required.
+[functions]
+  directory = "netlify/functions"
+
+# Fetch red card stats from API-Football for newly finished matches
+[functions."red-cards"]
+  schedule = "0 * * * *"
+
+# Fetch World Cup winner odds from OddsPapi — twice daily to stay within 250 req/month free tier
+[functions."odds"]
+  schedule = "0 8,14 * * *"
