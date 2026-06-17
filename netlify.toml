@@ -5,6 +5,6 @@
 [functions."red-cards"]
   schedule = "0 * * * *"
 
-# Fetch World Cup winner odds from OddsPapi (rate-limited internally to 4h)
+# Fetch World Cup winner odds from OddsPapi — twice daily to stay within 250 req/month free tier
 [functions."odds"]
-  schedule = "0 * * * *"
+  schedule = "0 8,14 * * *"
