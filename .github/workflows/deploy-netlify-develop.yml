@@ -1,9 +1,10 @@
-name: Deploy develop to Netlify
+name: Deploy to Netlify
 
 on:
   push:
     branches:
       - develop
+      - master
 
 jobs:
   deploy:
@@ -20,10 +21,15 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install dependencies
         run: npm install
 
-      - name: Deploy to Netlify
+      - name: Deploy develop branch preview
+        if: github.ref == 'refs/heads/develop'
+        run: npx netlify-cli deploy --no-build --dir=.
+
+      - name: Deploy master branch to production
+        if: github.ref == 'refs/heads/master'
         run: npx netlify-cli deploy --prod --no-build --dir=.
