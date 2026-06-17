@@ -3,8 +3,8 @@
 
 # Fetch red card stats from API-Football for newly finished matches
 [functions."red-cards"]
-  schedule = "*/30 * * * *"
+  schedule = "0 * * * *"
 
 # Fetch World Cup winner odds from OddsPapi (rate-limited internally to 4h)
 [functions."odds"]
-  schedule = "*/30 * * * *"
+  schedule = "0 * * * *"
