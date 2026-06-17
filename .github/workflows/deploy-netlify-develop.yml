@@ -29,12 +29,12 @@ jobs:
 
       - name: Deploy develop branch preview
         if: github.ref == 'refs/heads/develop'
-        run: npx netlify-cli deploy --no-build --dir=.
+        run: npx netlify-cli deploy --no-build --dir=. --site $NETLIFY_SITE_ID
 
       - name: Deploy tabs-fix branch preview
         if: github.ref == 'refs/heads/tabs-fix'
-        run: npx netlify-cli deploy --no-build --dir=.
+        run: npx netlify-cli deploy --no-build --dir=. --site $NETLIFY_SITE_ID
 
       - name: Deploy master branch to production
         if: github.ref == 'refs/heads/master'
-        run: npx netlify-cli deploy --prod --no-build --dir=.
+        run: npx netlify-cli deploy --prod --no-build --dir=. --site $NETLIFY_SITE_ID
