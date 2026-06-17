@@ -1,5 +1,7 @@
 'use strict';
 
+const { getStore } = require('@netlify/blobs');
+
 const API_FOOTBALL_BASE = 'https://v3.football.api-sports.io';
 const WC_LEAGUE = 1;
 const WC_SEASON = 2026;
@@ -72,7 +74,6 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     let csv = 'home,away,home_red_cards,away_red_cards\n';
     try {
-      const { getStore } = require('@netlify/blobs');
       const store = getStore('red-cards');
       const raw = await store.get('data', { type: 'text' });
       if (raw) csv = toCsv(JSON.parse(raw));
@@ -93,7 +94,6 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { getStore } = require('@netlify/blobs');
     const store = getStore('red-cards');
 
     // Load previously stored data

@@ -1,5 +1,7 @@
 'use strict';
 
+const { getStore } = require('@netlify/blobs');
+
 const ODDSPAPI_BASE = 'https://api.oddspapi.io/v4';
 const SOCCER_SPORT_ID = 10;
 
@@ -148,7 +150,6 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     let csv = 'country,probability\n';
     try {
-      const { getStore } = require('@netlify/blobs');
       const store = getStore('odds');
       const raw = await store.get('data', { type: 'text' });
       if (raw) csv = toCsv(JSON.parse(raw));
@@ -169,7 +170,6 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { getStore } = require('@netlify/blobs');
     const store = getStore('odds');
 
     const probabilities = await fetchWinnerOdds();
