@@ -2,10 +2,6 @@
 
 const ODDSPAPI_BASE = 'https://api.oddspapi.io/v4';
 const SOCCER_SPORT_ID = 10;
-// OddsPapi free tier: 250 req/month. Cap real fetches to every 4h even though
-// the scheduler fires every 30 min — the scheduler just wakes the function; the
-// rate check inside decides whether to actually call the external API.
-const MIN_UPDATE_INTERVAL_MS = 4 * 60 * 60 * 1000;
 
 const TEAM_ALIASES = {
   'United States': 'United States',
@@ -175,21 +171,6 @@ exports.handler = async (event) => {
   try {
     const { getStore } = require('@netlify/blobs');
     const store = getStore('odds');
-
-    // Rate limit: only actually hit OddsPapi every 4 hours (250 req/month budget)
-    try {
-      const metaRaw = await store.get('meta', { type: 'text' });
-      if (metaRaw) {
-        const { lastUpdated } = JSON.parse(metaRaw);
-        const ageMs = Date.now() - lastUpdated;
-        if (ageMs < MIN_UPDATE_INTERVAL_MS) {
-          return {
-            statusCode: 200,
-            body: JSON.stringify({ skipped: true, ageMinutes: Math.round(ageMs / 60000) }),
-          };
-        }
-      }
-    } catch {}
 
     const probabilities = await fetchWinnerOdds();
 

@@ -18,6 +18,14 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install
+
       - name: Deploy develop branch preview
         if: github.ref == 'refs/heads/develop'
         run: npx netlify-cli deploy --no-build --dir=.
