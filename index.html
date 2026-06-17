@@ -10,7 +10,7 @@
 <body>
   <div class="grain"></div>
   <header class="hero">
-    <nav><span class="tiny">Fabacus</span><button id="refreshBtn">Refresh CSV data</button></nav>
+    <nav><span class="tiny">Fabacus</span></nav>
     <div class="hero-grid">
       <div>
         <p class="kicker">World Cup 2026</p>
@@ -24,45 +24,58 @@
     </div>
   </header>
 
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="games">Games</button>
+    <button class="tab-btn" data-tab="leaderboard">Leaderboard</button>
+    <button class="tab-btn" data-tab="groups">Groups</button>
+    <button class="tab-btn" data-tab="knockout">Knockout</button>
+  </div>
+
   <main>
-    <section class="results-strip top-results">
-      <div class="section-title">
-        <h2>Most recent game results</h2>
-        <p id="dataSource">Loading local CSV files...</p>
-      </div>
-      <div id="results" class="results"></div>
-    </section>
+    <div class="tab-panel active" id="tab-games">
 
-    <section class="results-strip upcoming-strip">
-      <div class="section-title">
-        <h2>Next 3 games</h2>
-        <p><a class="fifa-link" href="https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/scores-fixtures?country=GB&wtw-filter=ALL" target="_blank" rel="noopener">See full detail of matches here</a></p>
-      </div>
-      <div id="upcoming" class="results"></div>
-    </section>
+      <section class="widgets">
+        <article class="widget widget-points"><span class="label">Points system</span>
+          <ul class="points-list">
+            <li><strong>3</strong><span>Win</span></li>
+            <li><strong>1</strong><span>Draw</span></li>
+            <li><strong>+2</strong><span>Knockout progression</span></li>
+            <li><strong>+10</strong><span>Champion</span></li>
+            <li class="note">Red cards break ties against you</li>
+          </ul>
+        </article>
+        <article class="widget feature"><span class="label">Leaderboard</span><ol id="leaderboard"></ol></article>
+        <article class="widget"><span class="label">Most red cards</span><div id="redCards"></div></article>
+        <article class="widget"><span class="label">Most likely to win</span><div id="mostLikely"></div></article>
+      </section>
 
-    <section class="widgets">
-      <article class="widget feature"><span class="label">Leaderboard</span><ol id="leaderboard"></ol></article>
-      <article class="widget"><span class="label">Least points</span><div id="leastPoints"></div></article>
-      <article class="widget"><span class="label">Most red cards</span><div id="redCards"></div></article>
-      <article class="widget"><span class="label">Most likely to win</span><div id="mostLikely"></div></article>
-    </section>
+      <section class="results-strip upcoming-strip">
+        <div class="section-title">
+          <h2>Next 3 games</h2>
+          <p><a class="fifa-link" href="https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/scores-fixtures?country=GB&wtw-filter=ALL" target="_blank" rel="noopener">See full detail of matches here</a></p>
+        </div>
+        <div id="upcoming" class="results"></div>
+      </section>
 
-    <section class="panel">
-      <div class="section-title"><h2>Participants & teams</h2></div>
-      <div id="cards" class="cards"></div>
-    </section>
+      <section class="results-strip">
+        <div class="section-title">
+          <h2>Most recent game results</h2>
+          <p id="dataSource">Loading local CSV files...</p>
+        </div>
+        <div id="results" class="results"></div>
+      </section>
 
-    <section class="panel split">
-      <div>
-        <div class="section-title"><h2>Knockout progress</h2></div>
-        <div id="teamTable" class="table"></div>
-      </div>
-      <aside class="rules">
-        <h3>Points system</h3>
-        <p><b>3</b> win, <b>1</b> draw, <b>+2</b> knockout progression, <b>+10</b> champion. Red cards break ties against you.</p>
-      </aside>
-    </section>
+    </div>
+
+    <div class="tab-panel" id="tab-leaderboard">
+      <section class="panel">
+        <div class="section-title"><h2>Participants &amp; teams</h2></div>
+        <div id="detailedLeaderboard" class="detailed-leaderboard"></div>
+      </section>
+    </div>
+
+    <div class="tab-panel" id="tab-groups"></div>
+    <div class="tab-panel" id="tab-knockout"></div>
   </main>
 
   <footer>Built for the Fabacus WC Sweepstake by Miriam</footer>

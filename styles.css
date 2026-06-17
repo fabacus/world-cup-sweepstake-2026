@@ -118,3 +118,53 @@
   border:2px solid var(--ink);
   padding:8px 10px;
 }
+
+/* Tab bar */
+.tab-bar{background:var(--ink);border-bottom:4px solid var(--ink);display:flex;padding:0 clamp(18px,4vw,56px)}
+.tab-btn{background:transparent;color:var(--paper);border:none;border-radius:0;padding:16px 28px;font-size:13px;letter-spacing:.1em;text-transform:uppercase;font-weight:900;cursor:pointer}
+.tab-btn.active{background:var(--orange);color:var(--ink)}
+.tab-btn:hover:not(.active){background:rgba(255,255,255,.12)}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+.tab-panel .results-strip{margin-top:34px}
+.tab-panel .results-strip .results{grid-template-columns:1fr;gap:18px}
+@media(max-width:900px){.tab-btn{padding:14px 16px;font-size:12px}}
+
+/* Points system widget list */
+.points-list{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:0}
+.points-list li{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px dashed var(--ink);font-weight:800;font-size:15px}
+.points-list li strong{font-size:26px;font-weight:1000;line-height:1;min-width:42px}
+.points-list li.note{border-bottom:none;font-size:12px;letter-spacing:.04em;opacity:.65;padding-top:10px}
+
+/* Green points system widget */
+.widget.widget-points{background:var(--green);color:white}
+.widget.widget-points .points-list li{border-bottom-color:rgba(255,255,255,.3)}
+.widget.widget-points .points-list li.note{opacity:.7}
+
+/* Detailed leaderboard */
+.detailed-leaderboard{display:grid;gap:14px;margin-top:4px}
+.lb-card{background:var(--paper);border:4px solid var(--ink);box-shadow:var(--shadow);overflow:hidden}
+.lb-header{display:grid;grid-template-columns:64px 1fr auto;align-items:center;gap:16px;background:var(--ink);color:white;padding:14px 18px}
+.lb-rank{font-size:20px;font-weight:1000;line-height:1;text-align:center}
+.lb-rank-gold{color:#FFD700}
+.lb-rank-silver{color:#C8C8C8}
+.lb-rank-bronze{color:#CD7F32}
+.lb-name{font-size:22px;font-weight:1000;text-transform:uppercase;letter-spacing:-.02em;min-width:0}
+.lb-points{font-size:30px;font-weight:1000;line-height:1;white-space:nowrap}
+.lb-points span{font-size:12px;font-weight:800;opacity:.65;margin-left:3px;text-transform:uppercase;letter-spacing:.06em}
+.lb-team-row,.lb-totals-row{display:grid;grid-template-columns:50px 1fr 46px 46px 46px 52px 72px;align-items:center;gap:8px;padding:10px 18px;border-top:2px solid var(--ink)}
+.lb-totals-row{background:#ede0b0;font-weight:900}
+.lb-team-name{font-weight:800;font-size:15px;min-width:0}
+.lb-total-label{grid-column:1 / span 2;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;opacity:.6}
+.lb-stat{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:16px;font-weight:900;text-align:center}
+.lb-stat-label{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;opacity:.55}
+.lb-stat-rc{color:var(--red)}
+.lb-stat-prob{color:var(--blue)}
+.lb-card .flag-wrap{width:42px;height:30px}
+@media(max-width:700px){
+  .lb-team-row,.lb-totals-row{grid-template-columns:44px 1fr 38px 38px 38px 44px 58px;gap:4px;padding:10px 12px}
+  .lb-header{padding:12px;gap:10px}
+  .lb-name{font-size:17px}
+  .lb-points{font-size:24px}
+  .lb-stat{font-size:14px}
+}

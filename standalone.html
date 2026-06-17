@@ -10,7 +10,7 @@
 <body>
   <div class="grain"></div>
   <header class="hero">
-    <nav><span class="tiny">Fabacus</span><button id="refreshBtn">Refresh CSV data</button></nav>
+    <nav><span class="tiny">Fabacus</span></nav>
     <div class="hero-grid">
       <div>
         <p class="kicker">World Cup 2026</p>
@@ -24,45 +24,58 @@
     </div>
   </header>
 
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="games">Games</button>
+    <button class="tab-btn" data-tab="leaderboard">Leaderboard</button>
+    <button class="tab-btn" data-tab="groups">Groups</button>
+    <button class="tab-btn" data-tab="knockout">Knockout</button>
+  </div>
+
   <main>
-    <section class="results-strip top-results">
-      <div class="section-title">
-        <h2>Most recent game results</h2>
-        <p id="dataSource">Loading local CSV files...</p>
-      </div>
-      <div id="results" class="results"></div>
-    </section>
+    <div class="tab-panel active" id="tab-games">
 
-    <section class="results-strip upcoming-strip">
-      <div class="section-title">
-        <h2>Next 3 games</h2>
-        <p><a class="fifa-link" href="https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/scores-fixtures?country=GB&wtw-filter=ALL" target="_blank" rel="noopener">See full detail of matches here</a></p>
-      </div>
-      <div id="upcoming" class="results"></div>
-    </section>
+      <section class="widgets">
+        <article class="widget widget-points"><span class="label">Points system</span>
+          <ul class="points-list">
+            <li><strong>3</strong><span>Win</span></li>
+            <li><strong>1</strong><span>Draw</span></li>
+            <li><strong>+2</strong><span>Knockout progression</span></li>
+            <li><strong>+10</strong><span>Champion</span></li>
+            <li class="note">Red cards break ties against you</li>
+          </ul>
+        </article>
+        <article class="widget feature"><span class="label">Leaderboard</span><ol id="leaderboard"></ol></article>
+        <article class="widget"><span class="label">Most red cards</span><div id="redCards"></div></article>
+        <article class="widget"><span class="label">Most likely to win</span><div id="mostLikely"></div></article>
+      </section>
 
-    <section class="widgets">
-      <article class="widget feature"><span class="label">Leaderboard</span><ol id="leaderboard"></ol></article>
-      <article class="widget"><span class="label">Least points</span><div id="leastPoints"></div></article>
-      <article class="widget"><span class="label">Most red cards</span><div id="redCards"></div></article>
-      <article class="widget"><span class="label">Most likely to win</span><div id="mostLikely"></div></article>
-    </section>
+      <section class="results-strip upcoming-strip">
+        <div class="section-title">
+          <h2>Next 3 games</h2>
+          <p><a class="fifa-link" href="https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/scores-fixtures?country=GB&wtw-filter=ALL" target="_blank" rel="noopener">See full detail of matches here</a></p>
+        </div>
+        <div id="upcoming" class="results"></div>
+      </section>
 
-    <section class="panel">
-      <div class="section-title"><h2>Participants & teams</h2></div>
-      <div id="cards" class="cards"></div>
-    </section>
+      <section class="results-strip">
+        <div class="section-title">
+          <h2>Most recent game results</h2>
+          <p id="dataSource">Loading local CSV files...</p>
+        </div>
+        <div id="results" class="results"></div>
+      </section>
 
-    <section class="panel split">
-      <div>
-        <div class="section-title"><h2>Knockout progress</h2></div>
-        <div id="teamTable" class="table"></div>
-      </div>
-      <aside class="rules">
-        <h3>Points system</h3>
-        <p><b>3</b> win, <b>1</b> draw, <b>+2</b> knockout progression, <b>+10</b> champion. Red cards break ties against you.</p>
-      </aside>
-    </section>
+    </div>
+
+    <div class="tab-panel" id="tab-leaderboard">
+      <section class="panel">
+        <div class="section-title"><h2>Participants &amp; teams</h2></div>
+        <div id="detailedLeaderboard" class="detailed-leaderboard"></div>
+      </section>
+    </div>
+
+    <div class="tab-panel" id="tab-groups"></div>
+    <div class="tab-panel" id="tab-knockout"></div>
   </main>
 
   <footer>Built for the Fabacus WC Sweepstake by Miriam</footer>
@@ -71,17 +84,17 @@ const SCORING = { win: 3, draw: 1, knockoutProgress: 2, champion: 10 };
 
 const CONFIG = {
   teamsCsv: './teams.csv',
-  // The site now tries the Netlify OneDrive CSV proxy first, then falls back to local CSVs.
-  // Put your OneDrive share/download URL in the ONEDRIVE_SCORES_CSV_URL environment variable in Netlify.
-  matchesCsv: ['/.netlify/functions/onedrive-scores', './scores.csv', './matches.csv'],
-  probabilitiesCsv: './probabilities.csv',
+  matchesCsv: '/.netlify/functions/openfootball-matches',
+  redCardsCsv: '/.netlify/functions/red-cards',
+  probabilitiesCsv: '/.netlify/functions/odds',
   refreshMs: 60 * 1000,
   displayToday: '2026-06-11T12:00:00Z'
 };
 
 const FALLBACK_CSV = {
+  redCardsCsv: "home,away,home_red_cards,away_red_cards\n",
   teamsCsv: "participant,country,code\nMiriam,Morocco,ma\nMiriam,Czechia,cz\nOscar,Canada,ca\nOscar,Saudi Arabia,sa\nMegan,Uruguay,uy\nMegan,Tunisia,tn\nJamie,Belgium,be\nJamie,Jordan,jo\nDennis,Ecuador,ec\nDennis,Scotland,gb-sct\nKatie,Egypt,eg\nKatie,Netherlands,nl\nSacha,Australia,au\nSacha,Croatia,hr\nAly,United States,us\nAly,Uzbekistan,uz\nSimon,Paraguay,py\nSimon,South Africa,za\nConnor,Germany,de\nConnor,Ghana,gh\nGus,France,fr\nGus,Curacao,cw\nNina,Mexico,mx\nNina,Bosnia and Herzegovina,ba\nJB,Portugal,pt\nJB,Iraq,iq\nPravan,Argentina,ar\nPravan,Norway,no\nSam,South Korea,kr\nSam,Austria,at\nEmma,Colombia,co\nEmma,Haiti,ht\nKaro,Japan,jp\nKaro,Sweden,se\nCraig,Switzerland,ch\nCraig,Iran,ir\nSteve,England,gb-eng\nSteve,Cape Verde,cv\nPete,Senegal,sn\nPete,Algeria,dz\nWaj,New Zealand,nz\nWaj,Spain,es\nScott,Brazil,br\nScott,Qatar,qa\nSwareena,Panama,pa\nSwareena,Turkiye,tr\nAndrew,Ivory Coast,ci\nAndrew,DR Congo,cd\n",
-  matchesCsv: "match_id,stage,group,datetime,status,home,away,home_score,away_score,home_red_cards,away_red_cards,venue\n1,Group stage,A,2026-06-11 20:00,finished,South Africa,Mexico,1,2,0,0,\"Estadio Azteca, Mexico City\"\n2,Group stage,A,2026-06-12 03:00,ongoing,South Korea,Czechia,3,1,1,5,\"Estadio Akron, Guadalajara\"\n3,Group stage,B,2026-06-12 20:00,scheduled,Canada,Bosnia and Herzegovina,,,,,\"BMO Field, Toronto\"\n4,Group stage,D,2026-06-13 02:00,scheduled,United States,Paraguay,,,,,\"SoFi Stadium, Inglewood\"\n5,Group stage,B,2026-06-13 20:00,scheduled,Qatar,Switzerland,,,,,\"Levi's Stadium, Santa Clara\"\n6,Group stage,C,2026-06-13 23:00,scheduled,Brazil,Morocco,,,,,\"MetLife Stadium, East Rutherford\"\n7,Group stage,C,2026-06-14 02:00,scheduled,Haiti,Scotland,,,,,\"Gillette Stadium, Foxborough\"\n8,Group stage,D,2026-06-14 05:00,scheduled,Australia,Turkiye,,,,,\"BC Place, Vancouver\"\n9,Group stage,E,2026-06-14 18:00,scheduled,Germany,Curacao,,,,,\"NRG Stadium, Houston\"\n10,Group stage,F,2026-06-14 21:00,scheduled,Netherlands,Japan,,,,,\"AT&T Stadium, Arlington\"\n11,Group stage,E,2026-06-15 00:00,scheduled,Ivory Coast,Ecuador,,,,,\"Lincoln Financial Field, Philadelphia\"\n12,Group stage,F,2026-06-15 03:00,scheduled,Sweden,Tunisia,,,,,\"Estadio BBVA, Monterrey\"\n13,Group stage,H,2026-06-15 17:00,scheduled,Spain,Cape Verde,,,,,\"Mercedes-Benz Stadium, Atlanta\"\n14,Group stage,G,2026-06-15 20:00,scheduled,Belgium,Egypt,,,,,\"Lumen Field, Seattle\"\n15,Group stage,H,2026-06-15 23:00,scheduled,Saudi Arabia,Uruguay,,,,,\"Hard Rock Stadium, Miami\"\n16,Group stage,G,2026-06-16 02:00,scheduled,Iran,New Zealand,,,,,\"SoFi Stadium, Inglewood\"\n17,Group stage,I,2026-06-16 20:00,scheduled,France,Senegal,,,,,\"MetLife Stadium, East Rutherford\"\n18,Group stage,I,2026-06-16 23:00,scheduled,Iraq,Norway,,,,,\"Gillette Stadium, Foxborough\"\n19,Group stage,J,2026-06-17 02:00,scheduled,Argentina,Algeria,,,,,\"Arrowhead Stadium, Kansas City\"\n20,Group stage,J,2026-06-17 05:00,scheduled,Austria,Jordan,,,,,\"Levi's Stadium, Santa Clara\"\n21,Group stage,K,2026-06-17 18:00,scheduled,Portugal,DR Congo,,,,,\"NRG Stadium, Houston\"\n22,Group stage,L,2026-06-17 21:00,scheduled,England,Croatia,,,,,\"AT&T Stadium, Arlington\"\n23,Group stage,L,2026-06-18 00:00,scheduled,Ghana,Panama,,,,,\"BMO Field, Toronto\"\n24,Group stage,K,2026-06-18 03:00,scheduled,Uzbekistan,Colombia,,,,,\"Estadio Azteca, Mexico City\"\n25,Group stage,A,2026-06-18 17:00,scheduled,Czechia,South Africa,,,,,\"Mercedes-Benz Stadium, Atlanta\"\n26,Group stage,B,2026-06-18 20:00,scheduled,Bosnia and Herzegovina,Switzerland,,,,,\"SoFi Stadium, Inglewood\"\n27,Group stage,B,2026-06-18 23:00,scheduled,Canada,Qatar,,,,,\"BC Place, Vancouver\"\n28,Group stage,A,2026-06-19 02:00,scheduled,Mexico,South Korea,,,,,\"Estadio Akron, Guadalajara\"\n29,Group stage,D,2026-06-19 20:00,scheduled,United States,Australia,,,,,\"Lumen Field, Seattle\"\n30,Group stage,C,2026-06-19 23:00,scheduled,Scotland,Morocco,,,,,\"Gillette Stadium, Foxborough\"\n31,Group stage,C,2026-06-20 02:00,scheduled,Brazil,Haiti,,,,,\"Lincoln Financial Field, Philadelphia\"\n32,Group stage,D,2026-06-20 04:00,scheduled,Turkiye,Paraguay,,,,,\"Levi's Stadium, Santa Clara\"\n33,Group stage,F,2026-06-20 18:00,scheduled,Netherlands,Sweden,,,,,\"NRG Stadium, Houston\"\n34,Group stage,E,2026-06-20 21:00,scheduled,Germany,Ivory Coast,,,,,\"BMO Field, Toronto\"\n35,Group stage,E,2026-06-21 01:00,scheduled,Ecuador,Curacao,,,,,\"Arrowhead Stadium, Kansas City\"\n36,Group stage,F,2026-06-21 05:00,scheduled,Tunisia,Japan,,,,,\"Estadio BBVA, Monterrey\"\n37,Group stage,H,2026-06-21 17:00,scheduled,Spain,Saudi Arabia,,,,,\"Mercedes-Benz Stadium, Atlanta\"\n38,Group stage,G,2026-06-21 20:00,scheduled,Belgium,Iran,,,,,\"SoFi Stadium, Inglewood\"\n39,Group stage,H,2026-06-21 23:00,scheduled,Uruguay,Cape Verde,,,,,\"Hard Rock Stadium, Miami\"\n40,Group stage,G,2026-06-22 02:00,scheduled,New Zealand,Egypt,,,,,\"BC Place, Vancouver\"\n41,Group stage,J,2026-06-22 18:00,scheduled,Argentina,Austria,,,,,\"AT&T Stadium, Arlington\"\n42,Group stage,I,2026-06-22 22:00,scheduled,France,Iraq,,,,,\"Lincoln Financial Field, Philadelphia\"\n43,Group stage,I,2026-06-23 01:00,scheduled,Norway,Senegal,,,,,\"MetLife Stadium, East Rutherford\"\n44,Group stage,J,2026-06-23 04:00,scheduled,Jordan,Algeria,,,,,\"Levi's Stadium, Santa Clara\"\n45,Group stage,K,2026-06-23 18:00,scheduled,Portugal,Uzbekistan,,,,,\"NRG Stadium, Houston\"\n46,Group stage,L,2026-06-23 21:00,scheduled,England,Ghana,,,,,\"Gillette Stadium, Foxborough\"\n47,Group stage,L,2026-06-24 00:00,scheduled,Panama,Croatia,,,,,\"BMO Field, Toronto\"\n48,Group stage,K,2026-06-24 03:00,scheduled,Colombia,DR Congo,,,,,\"Estadio Akron, Guadalajara\"\n49,Group stage,B,2026-06-24 20:00,scheduled,Switzerland,Canada,,,,,\"BC Place, Vancouver\"\n50,Group stage,B,2026-06-24 20:00,scheduled,Bosnia and Herzegovina,Qatar,,,,,\"Lumen Field, Seattle\"\n51,Group stage,C,2026-06-24 23:00,scheduled,Scotland,Brazil,,,,,\"Hard Rock Stadium, Miami\"\n52,Group stage,C,2026-06-24 23:00,scheduled,Morocco,Haiti,,,,,\"Mercedes-Benz Stadium, Atlanta\"\n53,Group stage,A,2026-06-25 02:00,scheduled,Czechia,Mexico,,,,,\"Estadio Azteca, Mexico City\"\n54,Group stage,A,2026-06-25 02:00,scheduled,South Africa,South Korea,,,,,\"Estadio BBVA, Monterrey\"\n55,Group stage,E,2026-06-25 21:00,scheduled,Ecuador,Germany,,,,,\"MetLife Stadium, East Rutherford\"\n56,Group stage,E,2026-06-25 21:00,scheduled,Curacao,Ivory Coast,,,,,\"Lincoln Financial Field, Philadelphia\"\n57,Group stage,F,2026-06-26 00:00,scheduled,Tunisia,Netherlands,,,,,\"Arrowhead Stadium, Kansas City\"\n58,Group stage,F,2026-06-26 00:00,scheduled,Japan,Sweden,,,,,\"AT&T Stadium, Arlington\"\n59,Group stage,D,2026-06-26 03:00,scheduled,Turkiye,United States,,,,,\"SoFi Stadium, Inglewood\"\n60,Group stage,D,2026-06-26 03:00,scheduled,Paraguay,Australia,,,,,\"Levi's Stadium, Santa Clara\"\n61,Group stage,I,2026-06-26 20:00,scheduled,Norway,France,,,,,\"Gillette Stadium, Foxborough\"\n62,Group stage,I,2026-06-26 20:00,scheduled,Senegal,Iraq,,,,,\"BMO Field, Toronto\"\n63,Group stage,H,2026-06-27 01:00,scheduled,Uruguay,Spain,,,,,\"Estadio Akron, Guadalajara\"\n64,Group stage,H,2026-06-27 01:00,scheduled,Cape Verde,Saudi Arabia,,,,,\"NRG Stadium, Houston\"\n65,Group stage,G,2026-06-27 04:00,scheduled,New Zealand,Belgium,,,,,\"BC Place, Vancouver\"\n66,Group stage,G,2026-06-27 04:00,scheduled,Egypt,Iran,,,,,\"Lumen Field, Seattle\"\n67,Group stage,L,2026-06-27 22:00,scheduled,Panama,England,,,,,\"MetLife Stadium, East Rutherford\"\n68,Group stage,L,2026-06-27 22:00,scheduled,Croatia,Ghana,,,,,\"Lincoln Financial Field, Philadelphia\"\n69,Group stage,K,2026-06-28 00:30,scheduled,Colombia,Portugal,,,,,\"Hard Rock Stadium, Miami\"\n70,Group stage,K,2026-06-28 00:30,scheduled,DR Congo,Uzbekistan,,,,,\"Mercedes-Benz Stadium, Atlanta\"\n71,Group stage,J,2026-06-28 03:00,scheduled,Jordan,Argentina,,,,,\"Arrowhead Stadium, Kansas City\"\n72,Group stage,J,2026-06-28 03:00,scheduled,Algeria,Austria,,,,,\"AT&T Stadium, Arlington\"\n73,Round of 32,,2026-06-28 20:00,scheduled,2nd Group A,2nd Group B,,,,,\"SoFi Stadium, Inglewood\"\n74,Round of 32,,2026-06-29 18:00,scheduled,1st Group C,2nd Group F,,,,,\"NRG Stadium, Houston\"\n75,Round of 32,,2026-06-29 21:30,scheduled,1st Group E,3rd place finisher,,,,,\"Gillette Stadium, Foxborough\"\n76,Round of 32,,2026-06-30 02:00,scheduled,1st Group F,2nd Group C,,,,,\"Estadio BBVA, Monterrey\"\n77,Round of 32,,2026-06-30 18:00,scheduled,2nd Group E,2nd Group I,,,,,\"AT&T Stadium, Arlington\"\n78,Round of 32,,2026-06-30 22:00,scheduled,1st Group I,3rd place finisher,,,,,\"MetLife Stadium, East Rutherford\"\n79,Round of 32,,2026-07-01 02:00,scheduled,1st Group A,3rd place finisher,,,,,\"Estadio Azteca, Mexico City\"\n80,Round of 32,,2026-07-01 17:00,scheduled,1st Group L,3rd place finisher,,,,,\"Mercedes-Benz Stadium, Atlanta\"\n81,Round of 32,,2026-07-01 21:00,scheduled,1st Group G,3rd place finisher,,,,,\"Lumen Field, Seattle\"\n82,Round of 32,,2026-07-02 01:00,scheduled,1st Group D,3rd place finisher,,,,,\"Levi's Stadium, Santa Clara\"\n83,Round of 32,,2026-07-02 20:00,scheduled,1st Group H,2nd Group J,,,,,\"SoFi Stadium, Inglewood\"\n84,Round of 32,,2026-07-03 00:00,scheduled,2nd Group K,2nd Group L,,,,,\"BMO Field, Toronto\"\n85,Round of 32,,2026-07-03 04:00,scheduled,1st Group B,3rd place finisher,,,,,\"BC Place, Vancouver\"\n86,Round of 32,,2026-07-03 19:00,scheduled,2nd Group D,2nd Group G,,,,,\"AT&T Stadium, Arlington\"\n87,Round of 32,,2026-07-03 23:00,scheduled,1st Group J,2nd Group H,,,,,\"Hard Rock Stadium, Miami\"\n88,Round of 32,,2026-07-04 02:30,scheduled,1st Group K,3rd place finisher,,,,,\"Arrowhead Stadium, Kansas City\"\n89,Round of 16,,2026-07-04 18:00,scheduled,Winner R32 M1,Winner R32 M3,,,,,\"NRG Stadium, Houston\"\n90,Round of 16,,2026-07-04 22:00,scheduled,Winner R32 M2,Winner R32 M5,,,,,\"Lincoln Financial Field, Philadelphia\"\n91,Round of 16,,2026-07-05 21:00,scheduled,Winner R32 M4,Winner R32 M6,,,,,\"MetLife Stadium, East Rutherford\"\n92,Round of 16,,2026-07-06 01:00,scheduled,Winner R32 M7,Winner R32 M8,,,,,\"Estadio Azteca, Mexico City\"\n93,Round of 16,,2026-07-06 20:00,scheduled,Winner R32 M11,Winner R32 M12,,,,,\"AT&T Stadium, Arlington\"\n94,Round of 16,,2026-07-07 01:00,scheduled,Winner R32 M9,Winner R32 M10,,,,,\"Lumen Field, Seattle\"\n95,Round of 16,,2026-07-07 17:00,scheduled,Winner R32 M14,Winner R32 M16,,,,,\"Mercedes-Benz Stadium, Atlanta\"\n96,Round of 16,,2026-07-07 21:00,scheduled,Winner R32 M13,Winner R32 M15,,,,,\"BC Place, Vancouver\"\n97,Quarter-final,,2026-07-09 21:00,scheduled,Winner R16 M1,Winner R16 M2,,,,,\"Gillette Stadium, Foxborough\"\n98,Quarter-final,,2026-07-10 20:00,scheduled,Winner R16 M5,Winner R16 M6,,,,,\"SoFi Stadium, Inglewood\"\n99,Quarter-final,,2026-07-11 22:00,scheduled,Winner R16 M3,Winner R16 M4,,,,,\"Hard Rock Stadium, Miami\"\n100,Quarter-final,,2026-07-12 02:00,scheduled,Winner R16 M7,Winner R16 M8,,,,,\"Arrowhead Stadium, Kansas City\"\n101,Semi-final,,2026-07-14 20:00,scheduled,Winner QF1,Winner QF2,,,,,\"AT&T Stadium, Arlington\"\n102,Semi-final,,2026-07-15 20:00,scheduled,Winner QF3,Winner QF4,,,,,\"Mercedes-Benz Stadium, Atlanta\"\n103,Third-place match,,2026-07-18 22:00,scheduled,Loser SF1,Loser SF2,,,,,\"Hard Rock Stadium, Miami\"\n104,Final,,2026-07-19 20:00,scheduled,Winner SF1,Winner SF2,,,,,\"MetLife Stadium, East Rutherford\"\n",
+  matchesCsv: "match_id,stage,group,datetime,status,home,away,home_score,away_score,home_red_cards,away_red_cards,venue\n1,Group stage,A,2026-06-11 19:00,finished,Mexico,South Africa,2,0,0,0,Mexico City\n2,Group stage,A,2026-06-12 02:00,finished,South Korea,Czech Republic,2,1,0,0,Guadalajara (Zapopan)\n3,Group stage,A,2026-06-18 16:00,scheduled,Czech Republic,South Africa,,,0,0,Atlanta\n4,Group stage,A,2026-06-19 01:00,scheduled,Mexico,South Korea,,,0,0,Guadalajara (Zapopan)\n5,Group stage,A,2026-06-25 01:00,scheduled,Czech Republic,Mexico,,,0,0,Mexico City\n6,Group stage,A,2026-06-25 01:00,scheduled,South Africa,South Korea,,,0,0,Monterrey (Guadalupe)\n7,Group stage,B,2026-06-12 19:00,finished,Canada,Bosnia & Herzegovina,1,1,0,0,Toronto\n8,Group stage,B,2026-06-13 19:00,finished,Qatar,Switzerland,1,1,0,0,San Francisco Bay Area (Santa Clara)\n9,Group stage,B,2026-06-18 19:00,scheduled,Switzerland,Bosnia & Herzegovina,,,0,0,Los Angeles (Inglewood)\n10,Group stage,B,2026-06-18 22:00,scheduled,Canada,Qatar,,,0,0,Vancouver\n11,Group stage,B,2026-06-24 19:00,scheduled,Switzerland,Canada,,,0,0,Vancouver\n12,Group stage,B,2026-06-24 19:00,scheduled,Bosnia & Herzegovina,Qatar,,,0,0,Seattle\n13,Group stage,C,2026-06-13 22:00,finished,Brazil,Morocco,1,1,0,0,New York/New Jersey (East Rutherford)\n14,Group stage,C,2026-06-14 01:00,finished,Haiti,Scotland,0,1,0,0,Boston (Foxborough)\n15,Group stage,C,2026-06-19 22:00,scheduled,Scotland,Morocco,,,0,0,Boston (Foxborough)\n16,Group stage,C,2026-06-20 00:30,scheduled,Brazil,Haiti,,,0,0,Philadelphia\n17,Group stage,C,2026-06-24 22:00,scheduled,Scotland,Brazil,,,0,0,Miami (Miami Gardens)\n18,Group stage,C,2026-06-24 22:00,scheduled,Morocco,Haiti,,,0,0,Atlanta\n19,Group stage,D,2026-06-13 01:00,finished,USA,Paraguay,4,1,0,0,Los Angeles (Inglewood)\n20,Group stage,D,2026-06-14 04:00,finished,Australia,Turkey,2,0,0,0,Vancouver\n21,Group stage,D,2026-06-19 19:00,scheduled,USA,Australia,,,0,0,Seattle\n22,Group stage,D,2026-06-20 03:00,scheduled,Turkey,Paraguay,,,0,0,San Francisco Bay Area (Santa Clara)\n23,Group stage,D,2026-06-26 02:00,scheduled,Turkey,USA,,,0,0,Los Angeles (Inglewood)\n24,Group stage,D,2026-06-26 02:00,scheduled,Paraguay,Australia,,,0,0,San Francisco Bay Area (Santa Clara)\n25,Group stage,E,2026-06-14 17:00,finished,Germany,Curaçao,7,1,0,0,Houston\n26,Group stage,E,2026-06-14 23:00,finished,Ivory Coast,Ecuador,1,0,0,0,Philadelphia\n27,Group stage,E,2026-06-20 20:00,scheduled,Germany,Ivory Coast,,,0,0,Toronto\n28,Group stage,E,2026-06-21 00:00,scheduled,Ecuador,Curaçao,,,0,0,Kansas City\n29,Group stage,E,2026-06-25 20:00,scheduled,Curaçao,Ivory Coast,,,0,0,Philadelphia\n30,Group stage,E,2026-06-25 20:00,scheduled,Ecuador,Germany,,,0,0,New York/New Jersey (East Rutherford)\n31,Group stage,F,2026-06-14 20:00,finished,Netherlands,Japan,2,2,0,0,Dallas (Arlington)\n32,Group stage,F,2026-06-15 02:00,finished,Sweden,Tunisia,5,1,0,0,Monterrey (Guadalupe)\n33,Group stage,F,2026-06-20 17:00,scheduled,Netherlands,Sweden,,,0,0,Houston\n34,Group stage,F,2026-06-21 04:00,scheduled,Tunisia,Japan,,,0,0,Monterrey (Guadalupe)\n35,Group stage,F,2026-06-25 23:00,scheduled,Japan,Sweden,,,0,0,Dallas (Arlington)\n36,Group stage,F,2026-06-25 23:00,scheduled,Tunisia,Netherlands,,,0,0,Kansas City\n37,Group stage,G,2026-06-15 19:00,finished,Belgium,Egypt,1,1,0,0,Seattle\n38,Group stage,G,2026-06-16 01:00,finished,Iran,New Zealand,2,2,0,0,Los Angeles (Inglewood)\n39,Group stage,G,2026-06-21 19:00,scheduled,Belgium,Iran,,,0,0,Los Angeles (Inglewood)\n40,Group stage,G,2026-06-22 01:00,scheduled,New Zealand,Egypt,,,0,0,Vancouver\n41,Group stage,G,2026-06-27 03:00,scheduled,Egypt,Iran,,,0,0,Seattle\n42,Group stage,G,2026-06-27 03:00,scheduled,New Zealand,Belgium,,,0,0,Vancouver\n43,Group stage,H,2026-06-15 16:00,finished,Spain,Cape Verde,0,0,0,0,Atlanta\n44,Group stage,H,2026-06-15 22:00,finished,Saudi Arabia,Uruguay,1,1,0,0,Miami (Miami Gardens)\n45,Group stage,H,2026-06-21 16:00,scheduled,Spain,Saudi Arabia,,,0,0,Atlanta\n46,Group stage,H,2026-06-21 22:00,scheduled,Uruguay,Cape Verde,,,0,0,Miami (Miami Gardens)\n47,Group stage,H,2026-06-27 00:00,scheduled,Cape Verde,Saudi Arabia,,,0,0,Houston\n48,Group stage,H,2026-06-27 00:00,scheduled,Uruguay,Spain,,,0,0,Guadalajara (Zapopan)\n49,Group stage,I,2026-06-16 19:00,finished,France,Senegal,3,1,0,0,New York/New Jersey (East Rutherford)\n50,Group stage,I,2026-06-16 22:00,finished,Iraq,Norway,1,4,0,0,Boston (Foxborough)\n51,Group stage,I,2026-06-22 21:00,scheduled,France,Iraq,,,0,0,Philadelphia\n52,Group stage,I,2026-06-23 00:00,scheduled,Norway,Senegal,,,0,0,New York/New Jersey (East Rutherford)\n53,Group stage,I,2026-06-26 19:00,scheduled,Norway,France,,,0,0,Boston (Foxborough)\n54,Group stage,I,2026-06-26 19:00,scheduled,Senegal,Iraq,,,0,0,Toronto\n55,Group stage,J,2026-06-17 01:00,finished,Argentina,Algeria,3,0,0,0,Kansas City\n56,Group stage,J,2026-06-17 04:00,finished,Austria,Jordan,3,1,0,0,San Francisco Bay Area (Santa Clara)\n57,Group stage,J,2026-06-22 17:00,scheduled,Argentina,Austria,,,0,0,Dallas (Arlington)\n58,Group stage,J,2026-06-23 03:00,scheduled,Jordan,Algeria,,,0,0,San Francisco Bay Area (Santa Clara)\n59,Group stage,J,2026-06-28 02:00,scheduled,Algeria,Austria,,,0,0,Kansas City\n60,Group stage,J,2026-06-28 02:00,scheduled,Jordan,Argentina,,,0,0,Dallas (Arlington)\n61,Group stage,K,2026-06-17 17:00,scheduled,Portugal,DR Congo,,,0,0,Houston\n62,Group stage,K,2026-06-18 02:00,scheduled,Uzbekistan,Colombia,,,0,0,Mexico City\n63,Group stage,K,2026-06-23 17:00,scheduled,Portugal,Uzbekistan,,,0,0,Houston\n64,Group stage,K,2026-06-24 02:00,scheduled,Colombia,DR Congo,,,0,0,Guadalajara (Zapopan)\n65,Group stage,K,2026-06-27 23:30,scheduled,Colombia,Portugal,,,0,0,Miami (Miami Gardens)\n66,Group stage,K,2026-06-27 23:30,scheduled,DR Congo,Uzbekistan,,,0,0,Atlanta\n67,Group stage,L,2026-06-17 20:00,scheduled,England,Croatia,,,0,0,Dallas (Arlington)\n68,Group stage,L,2026-06-17 23:00,scheduled,Ghana,Panama,,,0,0,Toronto\n69,Group stage,L,2026-06-23 20:00,scheduled,England,Ghana,,,0,0,Boston (Foxborough)\n70,Group stage,L,2026-06-23 23:00,scheduled,Panama,Croatia,,,0,0,Toronto\n71,Group stage,L,2026-06-27 21:00,scheduled,Panama,England,,,0,0,New York/New Jersey (East Rutherford)\n72,Group stage,L,2026-06-27 21:00,scheduled,Croatia,Ghana,,,0,0,Philadelphia\n73,Round of 32,,2026-06-28 19:00,scheduled,2A,2B,,,0,0,Los Angeles (Inglewood)\n74,Round of 32,,2026-06-29 20:30,scheduled,1E,3A/B/C/D/F,,,0,0,Boston (Foxborough)\n75,Round of 32,,2026-06-30 01:00,scheduled,1F,2C,,,0,0,Monterrey (Guadalupe)\n76,Round of 32,,2026-06-29 17:00,scheduled,1C,2F,,,0,0,Houston\n77,Round of 32,,2026-06-30 21:00,scheduled,1I,3C/D/F/G/H,,,0,0,New York/New Jersey (East Rutherford)\n78,Round of 32,,2026-06-30 17:00,scheduled,2E,2I,,,0,0,Dallas (Arlington)\n79,Round of 32,,2026-07-01 01:00,scheduled,1A,3C/E/F/H/I,,,0,0,Mexico City\n80,Round of 32,,2026-07-01 16:00,scheduled,1L,3E/H/I/J/K,,,0,0,Atlanta\n81,Round of 32,,2026-07-02 00:00,scheduled,1D,3B/E/F/I/J,,,0,0,San Francisco Bay Area (Santa Clara)\n82,Round of 32,,2026-07-01 20:00,scheduled,1G,3A/E/H/I/J,,,0,0,Seattle\n83,Round of 32,,2026-07-02 23:00,scheduled,2K,2L,,,0,0,Toronto\n84,Round of 32,,2026-07-02 19:00,scheduled,1H,2J,,,0,0,Los Angeles (Inglewood)\n85,Round of 32,,2026-07-03 03:00,scheduled,1B,3E/F/G/I/J,,,0,0,Vancouver\n86,Round of 32,,2026-07-03 22:00,scheduled,1J,2H,,,0,0,Miami (Miami Gardens)\n87,Round of 32,,2026-07-04 01:30,scheduled,1K,3D/E/I/J/L,,,0,0,Kansas City\n88,Round of 32,,2026-07-03 18:00,scheduled,2D,2G,,,0,0,Dallas (Arlington)\n89,Round of 16,,2026-07-04 21:00,scheduled,W74,W77,,,0,0,Philadelphia\n90,Round of 16,,2026-07-04 17:00,scheduled,W73,W75,,,0,0,Houston\n91,Round of 16,,2026-07-05 20:00,scheduled,W76,W78,,,0,0,New York/New Jersey (East Rutherford)\n92,Round of 16,,2026-07-06 00:00,scheduled,W79,W80,,,0,0,Mexico City\n93,Round of 16,,2026-07-06 19:00,scheduled,W83,W84,,,0,0,Dallas (Arlington)\n94,Round of 16,,2026-07-07 00:00,scheduled,W81,W82,,,0,0,Seattle\n95,Round of 16,,2026-07-07 16:00,scheduled,W86,W88,,,0,0,Atlanta\n96,Round of 16,,2026-07-07 20:00,scheduled,W85,W87,,,0,0,Vancouver\n97,Quarter-final,,2026-07-09 20:00,scheduled,W89,W90,,,0,0,Boston (Foxborough)\n98,Quarter-final,,2026-07-10 19:00,scheduled,W93,W94,,,0,0,Los Angeles (Inglewood)\n99,Quarter-final,,2026-07-11 21:00,scheduled,W91,W92,,,0,0,Miami (Miami Gardens)\n100,Quarter-final,,2026-07-12 01:00,scheduled,W95,W96,,,0,0,Kansas City\n101,Semi-final,,2026-07-14 19:00,scheduled,W97,W98,,,0,0,Dallas (Arlington)\n102,Semi-final,,2026-07-15 19:00,scheduled,W99,W100,,,0,0,Atlanta\n103,Third-place match,,2026-07-18 21:00,scheduled,L101,L102,,,0,0,Miami (Miami Gardens)\n104,Final,,2026-07-19 19:00,scheduled,W101,W102,,,0,0,New York/New Jersey (East Rutherford)",
   probabilitiesCsv: "country,probability\nMorocco,2\nCzechia,0\nCanada,0\nSaudi Arabia,0\nUruguay,3\nTunisia,0\nBelgium,4\nJordan,0\nEcuador,0\nScotland,0\nEgypt,0\nNetherlands,5\nAustralia,0\nCroatia,2.5\nUnited States,1.2\nUzbekistan,0\nParaguay,0\nSouth Africa,0\nGermany,7\nGhana,0.4\nFrance,12\nCuracao,0\nMexico,1.2\nBosnia and Herzegovina,0\nPortugal,6\nIraq,0\nArgentina,13\nNorway,0\nSouth Korea,0\nAustria,0\nColombia,2\nHaiti,0\nJapan,1.5\nSweden,0\nSwitzerland,0\nIran,0\nEngland,9\nCape Verde,0\nSenegal,0.8\nAlgeria,0\nNew Zealand,0\nSpain,8\nBrazil,11\nQatar,0\nPanama,0\nTurkiye,0\nIvory Coast,0\nDR Congo,0\n"
 };
 
@@ -286,6 +299,20 @@ function normalizeMatches(rows) {
   }).filter(match => match.home && match.away);
 }
 
+function normalizeRedCards(rows) {
+  const map = new Map();
+  for (const row of rows) {
+    const home = normalizeName(row.home || row.team1 || '');
+    const away = normalizeName(row.away || row.team2 || '');
+    if (!home || !away) continue;
+    map.set(`${home}|${away}`, {
+      homeRed: numberOrZero(row.home_red_cards || row.home_rc || 0),
+      awayRed: numberOrZero(row.away_red_cards || row.away_rc || 0),
+    });
+  }
+  return map;
+}
+
 function normalizeOdds(rows) {
   return Object.fromEntries(rows.map(row => {
     const country = normalizeName(row.country || row.team || row.nation || '');
@@ -321,6 +348,18 @@ async function loadData() {
   } catch (error) {
     errors.push(error.message);
     state.matches = [];
+  }
+
+  try {
+    const rcRows = parseCsv(await fetchCsvOrFallback(CONFIG.redCardsCsv, FALLBACK_CSV.redCardsCsv));
+    const rcMap = normalizeRedCards(rcRows);
+    state.matches = state.matches.map(m => {
+      const rc = rcMap.get(`${m.home}|${m.away}`);
+      if (!rc) return m;
+      return { ...m, redCards: { [m.home]: rc.homeRed, [m.away]: rc.awayRed } };
+    });
+  } catch (error) {
+    errors.push(error.message);
   }
 
   try {
@@ -406,7 +445,7 @@ function formatDateTime(value) {
   const d = parseMatchDate(value);
   if (Number.isNaN(d.getTime())) return 'Date TBC';
   const when = d.toLocaleString('en-GB', {
-    timeZone: 'UTC',
+    timeZone: 'Europe/London',
     weekday: 'short',
     day: 'numeric',
     month: 'long',
@@ -415,13 +454,15 @@ function formatDateTime(value) {
     minute: '2-digit',
     hour12: false
   });
-  return `${when} GMT`;
+  const tz = Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', timeZoneName: 'short' })
+    .formatToParts(d).find(p => p.type === 'timeZoneName')?.value ?? 'BST';
+  return `${when} ${tz}`;
 }
 
 function formatDateOnly(value) {
   const d = parseMatchDate(value);
   if (Number.isNaN(d.getTime())) return 'Date TBC';
-  return d.toLocaleDateString('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' });
+  return d.toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 function teamBlock(teamName) {
@@ -449,6 +490,49 @@ function renderMatch(match, upcoming = false) {
   </article>`;
 }
 
+function renderDetailedLeaderboard(people) {
+  if (!people.length) return '<p class="empty-state">No participants loaded</p>';
+
+  return people.map((person, i) => {
+    const rank = i + 1;
+    const rankClass = rank === 1 ? 'lb-rank-gold' : rank === 2 ? 'lb-rank-silver' : rank === 3 ? 'lb-rank-bronze' : '';
+    const totalWins = person.teams.reduce((s, t) => s + (t.wins || 0), 0);
+    const totalDraws = person.teams.reduce((s, t) => s + (t.draws || 0), 0);
+    const totalPlayed = person.teams.reduce((s, t) => s + (t.played || 0), 0);
+    const totalLosses = Math.max(0, totalPlayed - totalWins - totalDraws);
+
+    const teamRows = person.teams.map(team => {
+      const losses = Math.max(0, (team.played || 0) - (team.wins || 0) - (team.draws || 0));
+      return `<div class="lb-team-row">
+        ${flagMarkup(team.code, team.name)}
+        <span class="lb-team-name">${escapeHtml(team.name)}</span>
+        <span class="lb-stat"><span class="lb-stat-label">W</span>${team.wins || 0}</span>
+        <span class="lb-stat"><span class="lb-stat-label">D</span>${team.draws || 0}</span>
+        <span class="lb-stat"><span class="lb-stat-label">L</span>${losses}</span>
+        <span class="lb-stat lb-stat-rc"><span class="lb-stat-label">RC</span>${team.redCards || 0}</span>
+        <span class="lb-stat lb-stat-prob">${(team.probability || 0).toFixed(1)}%</span>
+      </div>`;
+    }).join('');
+
+    return `<div class="lb-card">
+      <div class="lb-header">
+        <span class="lb-rank ${rankClass}">#${rank}</span>
+        <span class="lb-name">${escapeHtml(person.participant)}</span>
+        <span class="lb-points">${person.points}<span>pts</span></span>
+      </div>
+      ${teamRows}
+      <div class="lb-totals-row">
+        <span class="lb-total-label">Total</span>
+        <span class="lb-stat"><span class="lb-stat-label">W</span>${totalWins}</span>
+        <span class="lb-stat"><span class="lb-stat-label">D</span>${totalDraws}</span>
+        <span class="lb-stat"><span class="lb-stat-label">L</span>${totalLosses}</span>
+        <span class="lb-stat lb-stat-rc"><span class="lb-stat-label">RC</span>${person.redCards}</span>
+        <span class="lb-stat lb-stat-prob">${person.probability.toFixed(1)}%</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 function setHtml(id, html) {
   const element = document.getElementById(id);
   if (element) element.innerHTML = html;
@@ -471,17 +555,13 @@ function render(errors = []) {
     ? people.slice(0, 7).map(person => `<li><b>${person.participant}</b> · ${person.points} pts · ${person.teams.map(team => team.name).join(' / ')}</li>`).join('')
     : '<li>Add teams to teams.csv</li>');
 
-  const low = hasPeople ? [...people].sort((a, b) => a.points - b.points || b.redCards - a.redCards)[0] : null;
   const reds = hasPeople ? [...people].sort((a, b) => b.redCards - a.redCards)[0] : null;
   const likely = hasPeople ? [...people].sort((a, b) => b.probability - a.probability)[0] : null;
 
-  setHtml('leastPoints', low ? `<div class="metric">${low.points}</div><div class="sub">${low.participant}</div><p>${low.teams.map(team => team.name).join(' + ')}</p>` : '<p>Add teams to teams.csv</p>');
   setHtml('redCards', reds ? `<div class="metric">${reds.redCards}</div><div class="sub">${reds.participant}</div><p>Discipline danger zone.</p>` : '<p>Add matches to matches.csv</p>');
   setHtml('mostLikely', likely ? `<div class="metric">${likely.probability.toFixed(1)}%</div><div class="sub">${likely.participant}</div><p>Combined outright probability.</p>` : '<p>Add probabilities to probabilities.csv</p>');
 
-  setHtml('cards', state.participants.map(person => `<article class="person"><h3>${escapeHtml(person.participant)}</h3><div class="teams">${person.teams.map(team => `<div class="team"><span class="team-name">${flagMarkup(team.code, team.name)}<span>${escapeHtml(team.name)}</span></span><span class="pill">${(state.odds[team.name] || 0).toFixed(0)}%</span></div>`).join('')}</div></article>`).join(''));
-
-  setHtml('teamTable', `<div class="row header"><span></span><span>Team</span><span>Pts</span><span>RC</span><span>Odds</span></div>` + stats.map(team => `<div class="row"><span class="table-flag">${flagMarkup(team.code, team.name)}</span><b>${escapeHtml(team.name)}</b><span>${team.points}</span><span>${team.redCards}</span><span>${team.probability}%</span></div>`).join(''));
+  setHtml('detailedLeaderboard', renderDetailedLeaderboard(people));
 
   const results = state.matches
     .filter(match => ['FINISHED', 'LIVE'].includes(match.status) && match.homeScore !== null && match.awayScore !== null)
@@ -502,6 +582,15 @@ function render(errors = []) {
 
 const refreshButton = document.getElementById('refreshBtn');
 if (refreshButton) refreshButton.addEventListener('click', loadData);
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
 
 loadData();
 setInterval(loadData, CONFIG.refreshMs);

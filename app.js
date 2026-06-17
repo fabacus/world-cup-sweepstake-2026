@@ -3,7 +3,8 @@ const SCORING = { win: 3, draw: 1, knockoutProgress: 2, champion: 10 };
 const CONFIG = {
   teamsCsv: './teams.csv',
   matchesCsv: '/.netlify/functions/openfootball-matches',
-  probabilitiesCsv: './probabilities.csv',
+  redCardsCsv: '/.netlify/functions/red-cards',
+  probabilitiesCsv: '/.netlify/functions/odds',
   refreshMs: 60 * 1000,
   displayToday: '2026-06-11T12:00:00Z'
 };
@@ -215,6 +216,20 @@ function normalizeMatches(rows) {
   }).filter(match => match.home && match.away);
 }
 
+function normalizeRedCards(rows) {
+  const map = new Map();
+  for (const row of rows) {
+    const home = normalizeName(row.home || row.team1 || '');
+    const away = normalizeName(row.away || row.team2 || '');
+    if (!home || !away) continue;
+    map.set(`${home}|${away}`, {
+      homeRed: numberOrZero(row.home_red_cards || row.home_rc || 0),
+      awayRed: numberOrZero(row.away_red_cards || row.away_rc || 0),
+    });
+  }
+  return map;
+}
+
 function normalizeOdds(rows) {
   return Object.fromEntries(rows.map(row => {
     const country = normalizeName(row.country || row.team || row.nation || '');
@@ -250,6 +265,18 @@ async function loadData() {
   } catch (error) {
     errors.push(error.message);
     state.matches = [];
+  }
+
+  try {
+    const rcRows = parseCsv(await fetchCsvOrFallback(CONFIG.redCardsCsv, 'home,away,home_red_cards,away_red_cards\n'));
+    const rcMap = normalizeRedCards(rcRows);
+    state.matches = state.matches.map(m => {
+      const rc = rcMap.get(`${m.home}|${m.away}`);
+      if (!rc) return m;
+      return { ...m, redCards: { [m.home]: rc.homeRed, [m.away]: rc.awayRed } };
+    });
+  } catch (error) {
+    errors.push(error.message);
   }
 
   try {
@@ -335,7 +362,7 @@ function formatDateTime(value) {
   const d = parseMatchDate(value);
   if (Number.isNaN(d.getTime())) return 'Date TBC';
   const when = d.toLocaleString('en-GB', {
-    timeZone: 'UTC',
+    timeZone: 'Europe/London',
     weekday: 'short',
     day: 'numeric',
     month: 'long',
@@ -344,13 +371,15 @@ function formatDateTime(value) {
     minute: '2-digit',
     hour12: false
   });
-  return `${when} GMT`;
+  const tz = Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', timeZoneName: 'short' })
+    .formatToParts(d).find(p => p.type === 'timeZoneName')?.value ?? 'BST';
+  return `${when} ${tz}`;
 }
 
 function formatDateOnly(value) {
   const d = parseMatchDate(value);
   if (Number.isNaN(d.getTime())) return 'Date TBC';
-  return d.toLocaleDateString('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' });
+  return d.toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 function teamBlock(teamName) {
@@ -378,6 +407,49 @@ function renderMatch(match, upcoming = false) {
   </article>`;
 }
 
+function renderDetailedLeaderboard(people) {
+  if (!people.length) return '<p class="empty-state">No participants loaded</p>';
+
+  return people.map((person, i) => {
+    const rank = i + 1;
+    const rankClass = rank === 1 ? 'lb-rank-gold' : rank === 2 ? 'lb-rank-silver' : rank === 3 ? 'lb-rank-bronze' : '';
+    const totalWins = person.teams.reduce((s, t) => s + (t.wins || 0), 0);
+    const totalDraws = person.teams.reduce((s, t) => s + (t.draws || 0), 0);
+    const totalPlayed = person.teams.reduce((s, t) => s + (t.played || 0), 0);
+    const totalLosses = Math.max(0, totalPlayed - totalWins - totalDraws);
+
+    const teamRows = person.teams.map(team => {
+      const losses = Math.max(0, (team.played || 0) - (team.wins || 0) - (team.draws || 0));
+      return `<div class="lb-team-row">
+        ${flagMarkup(team.code, team.name)}
+        <span class="lb-team-name">${escapeHtml(team.name)}</span>
+        <span class="lb-stat"><span class="lb-stat-label">W</span>${team.wins || 0}</span>
+        <span class="lb-stat"><span class="lb-stat-label">D</span>${team.draws || 0}</span>
+        <span class="lb-stat"><span class="lb-stat-label">L</span>${losses}</span>
+        <span class="lb-stat lb-stat-rc"><span class="lb-stat-label">RC</span>${team.redCards || 0}</span>
+        <span class="lb-stat lb-stat-prob">${(team.probability || 0).toFixed(1)}%</span>
+      </div>`;
+    }).join('');
+
+    return `<div class="lb-card">
+      <div class="lb-header">
+        <span class="lb-rank ${rankClass}">#${rank}</span>
+        <span class="lb-name">${escapeHtml(person.participant)}</span>
+        <span class="lb-points">${person.points}<span>pts</span></span>
+      </div>
+      ${teamRows}
+      <div class="lb-totals-row">
+        <span class="lb-total-label">Total</span>
+        <span class="lb-stat"><span class="lb-stat-label">W</span>${totalWins}</span>
+        <span class="lb-stat"><span class="lb-stat-label">D</span>${totalDraws}</span>
+        <span class="lb-stat"><span class="lb-stat-label">L</span>${totalLosses}</span>
+        <span class="lb-stat lb-stat-rc"><span class="lb-stat-label">RC</span>${person.redCards}</span>
+        <span class="lb-stat lb-stat-prob">${person.probability.toFixed(1)}%</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 function setHtml(id, html) {
   const element = document.getElementById(id);
   if (element) element.innerHTML = html;
@@ -400,17 +472,13 @@ function render(errors = []) {
     ? people.slice(0, 7).map(person => `<li><b>${person.participant}</b> · ${person.points} pts · ${person.teams.map(team => team.name).join(' / ')}</li>`).join('')
     : '<li>Add teams to teams.csv</li>');
 
-  const low = hasPeople ? [...people].sort((a, b) => a.points - b.points || b.redCards - a.redCards)[0] : null;
   const reds = hasPeople ? [...people].sort((a, b) => b.redCards - a.redCards)[0] : null;
   const likely = hasPeople ? [...people].sort((a, b) => b.probability - a.probability)[0] : null;
 
-  setHtml('leastPoints', low ? `<div class="metric">${low.points}</div><div class="sub">${low.participant}</div><p>${low.teams.map(team => team.name).join(' + ')}</p>` : '<p>Add teams to teams.csv</p>');
   setHtml('redCards', reds ? `<div class="metric">${reds.redCards}</div><div class="sub">${reds.participant}</div><p>Discipline danger zone.</p>` : '<p>Add matches to matches.csv</p>');
   setHtml('mostLikely', likely ? `<div class="metric">${likely.probability.toFixed(1)}%</div><div class="sub">${likely.participant}</div><p>Combined outright probability.</p>` : '<p>Add probabilities to probabilities.csv</p>');
 
-  setHtml('cards', state.participants.map(person => `<article class="person"><h3>${escapeHtml(person.participant)}</h3><div class="teams">${person.teams.map(team => `<div class="team"><span class="team-name">${flagMarkup(team.code, team.name)}<span>${escapeHtml(team.name)}</span></span><span class="pill">${(state.odds[team.name] || 0).toFixed(0)}%</span></div>`).join('')}</div></article>`).join(''));
-
-  setHtml('teamTable', `<div class="row header"><span></span><span>Team</span><span>Pts</span><span>RC</span><span>Odds</span></div>` + stats.map(team => `<div class="row"><span class="table-flag">${flagMarkup(team.code, team.name)}</span><b>${escapeHtml(team.name)}</b><span>${team.points}</span><span>${team.redCards}</span><span>${team.probability}%</span></div>`).join(''));
+  setHtml('detailedLeaderboard', renderDetailedLeaderboard(people));
 
   const results = state.matches
     .filter(match => ['FINISHED', 'LIVE'].includes(match.status) && match.homeScore !== null && match.awayScore !== null)
@@ -429,8 +497,14 @@ function render(errors = []) {
   setHtml('upcoming', upcoming.map(match => renderMatch(match, true)).join('') || '<p class="empty-state">Upcoming fixtures are not available yet</p>');
 }
 
-const refreshButton = document.getElementById('refreshBtn');
-if (refreshButton) refreshButton.addEventListener('click', loadData);
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
 
 loadData();
 setInterval(loadData, CONFIG.refreshMs);
