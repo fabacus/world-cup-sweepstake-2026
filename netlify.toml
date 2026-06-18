@@ -1,7 +1,3 @@
-[build]
-  publish = "."
-  command = "echo 'No build step — static site; functions bundled automatically'"
-
 [functions]
   directory = "netlify/functions"
 
