@@ -2,6 +2,15 @@
 
 const { getStore } = require('@netlify/blobs');
 
+// Manual Blobs config: CLI deploys don't auto-inject the Blobs context, so
+// pass siteID/token explicitly when available. Falls back to implicit
+// configuration for local dev / auto-injected environments.
+function blobStore(name) {
+  const siteID = process.env.NETLIFY_SITE_ID;
+  const token = process.env.NETLIFY_API_TOKEN;
+  return (siteID && token) ? getStore({ name, siteID, token }) : getStore(name);
+}
+
 const ODDSPAPI_BASE = 'https://api.oddspapi.io/v4';
 const SOCCER_SPORT_ID = 10;
 
@@ -150,7 +159,7 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     let csv = 'country,probability\n';
     try {
-      const store = getStore('odds');
+      const store = blobStore('odds');
       const raw = await store.get('data', { type: 'text' });
       if (raw) csv = toCsv(JSON.parse(raw));
     } catch (err) {
@@ -170,7 +179,7 @@ exports.handler = async (event) => {
   }
 
   try {
-    const store = getStore('odds');
+    const store = blobStore('odds');
 
     const probabilities = await fetchWinnerOdds();
 
