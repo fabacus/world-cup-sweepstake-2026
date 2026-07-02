@@ -216,9 +216,14 @@ function normalizeMatches(rows) {
       pens: homePens !== null && awayPens !== null ? { home: homePens, away: awayPens } : null,
       status,
       utcDate,
+      venue: row.venue || '',
       redCards: { [home]: homeRed, [away]: awayRed }
     };
   }).filter(match => match.home && match.away);
+}
+
+function shortVenue(venue) {
+  return String(venue || '').replace(/\s*\(.+\)\s*$/, '');
 }
 
 function isKnockoutStage(stage) {
@@ -232,6 +237,36 @@ function matchWinner(match) {
   if (match.awayScore > match.homeScore) return 'away';
   if (match.pens) return match.pens.home > match.pens.away ? 'home' : 'away';
   return null;
+}
+
+// Teams that can no longer win the cup: lost a knockout tie, or — once every
+// Round of 32 slot is resolved — never reached the knockouts at all. The
+// third-place play-off is ignored: both its teams are already out.
+function eliminatedTeamSet(matches) {
+  const knockout = matches.filter(m => isKnockoutStage(m.stage) && m.stage !== 'Third-place match');
+  const out = new Set();
+
+  const reachedKnockout = new Set();
+  for (const m of knockout) {
+    if (!placeholderLabel(m.home)) reachedKnockout.add(m.home);
+    if (!placeholderLabel(m.away)) reachedKnockout.add(m.away);
+  }
+
+  const r32 = matches.filter(m => m.stage === 'Round of 32');
+  const groupsDone = r32.length >= 16 && r32.every(m => !placeholderLabel(m.home) && !placeholderLabel(m.away));
+  if (groupsDone) {
+    for (const team of state.teams) {
+      if (!reachedKnockout.has(team.name)) out.add(team.name);
+    }
+  }
+
+  for (const m of knockout) {
+    const winner = matchWinner(m);
+    if (winner === 'home') out.add(m.away);
+    else if (winner === 'away') out.add(m.home);
+  }
+
+  return out;
 }
 
 function normalizeRedCards(rows) {
@@ -308,6 +343,7 @@ async function loadData() {
 }
 
 function compute(matches, odds) {
+  const outTeams = eliminatedTeamSet(matches);
   const stats = Object.fromEntries(allTeams().map(team => [team.name, {
     ...team,
     points: 0,
@@ -315,7 +351,8 @@ function compute(matches, odds) {
     draws: 0,
     redCards: 0,
     probability: odds[team.name] || 0,
-    played: 0
+    played: 0,
+    eliminated: outTeams.has(team.name)
   }]));
 
   for (const match of matches.filter(match => ['FINISHED', 'LIVE'].includes(match.status))) {
@@ -361,7 +398,8 @@ function compute(matches, odds) {
       teams,
       points: teams.reduce((sum, team) => sum + team.points, 0),
       redCards: teams.reduce((sum, team) => sum + team.redCards, 0),
-      probability: teams.reduce((sum, team) => sum + team.probability, 0)
+      probability: teams.reduce((sum, team) => sum + team.probability, 0),
+      knockedOut: teams.length > 0 && teams.every(team => team.eliminated)
     };
   }).sort((a, b) => b.points - a.points || a.redCards - b.redCards || b.probability - a.probability);
 
@@ -439,11 +477,12 @@ function renderMatch(match, upcoming = false) {
     : `<span class="score-wrap"><b class="score-number">${match.homeScore}-${match.awayScore}</b>${note ? `<span class="score-note">${escapeHtml(note)}</span>` : ''}</span>`;
   const statusLabel = match.status === 'LIVE' ? 'Ongoing' : match.status === 'FINISHED' ? 'Finished' : 'Scheduled';
   const stageLabel = isKnockoutStage(match.stage) ? ` · ${escapeHtml(match.stage)}` : '';
+  const venueLabel = match.venue ? ` · 📍 ${escapeHtml(shortVenue(match.venue))}` : '';
   const homeReds = match.redCards?.[match.home] || 0;
   const awayReds = match.redCards?.[match.away] || 0;
 
   return `<article class="match ${upcoming ? 'upcoming-match' : 'result-match'} ${match.status === 'LIVE' ? 'live-match' : ''}">
-    <div class="match-meta">${upcoming ? 'Upcoming fixture' : formatDateOnly(match.utcDate)}${stageLabel} · ${escapeHtml(statusLabel)}</div>
+    <div class="match-meta">${upcoming ? 'Upcoming fixture' : formatDateOnly(match.utcDate)}${stageLabel} · ${escapeHtml(statusLabel)}${venueLabel}</div>
     <div class="score">
       ${teamBlock(match.home)}
       ${scoreOrTime}
@@ -466,9 +505,9 @@ function renderDetailedLeaderboard(people) {
 
     const teamRows = person.teams.map(team => {
       const losses = Math.max(0, (team.played || 0) - (team.wins || 0) - (team.draws || 0));
-      return `<div class="lb-team-row">
+      return `<div class="lb-team-row${team.eliminated ? ' lb-row-out' : ''}">
         ${flagMarkup(team.code, team.name)}
-        <span class="lb-team-name">${escapeHtml(team.name)}</span>
+        <span class="lb-team-name">${escapeHtml(team.name)}${team.eliminated ? '<span class="lb-mini-out">out</span>' : ''}</span>
         <span class="lb-stat"><span class="lb-stat-label">W</span>${team.wins || 0}</span>
         <span class="lb-stat"><span class="lb-stat-label">D</span>${team.draws || 0}</span>
         <span class="lb-stat"><span class="lb-stat-label">L</span>${losses}</span>
@@ -480,7 +519,7 @@ function renderDetailedLeaderboard(people) {
     return `<div class="lb-card">
       <div class="lb-header">
         <span class="lb-rank ${rankClass}">#${rank}</span>
-        <span class="lb-name">${escapeHtml(person.participant)}</span>
+        <span class="lb-name">${escapeHtml(person.participant)}${person.knockedOut ? '<span class="lb-out-tag">Knocked out</span>' : ''}</span>
         <span class="lb-points">${person.points}<span>pts</span></span>
       </div>
       ${teamRows}
@@ -547,17 +586,42 @@ function bracketMatchCard(match, matchId) {
     return `<article class="bk-match bk-empty"><div class="bk-meta"><span>M${matchId}</span><span>TBC</span></div></article>`;
   }
   const d = parseMatchDate(match.utcDate);
-  const dateLabel = Number.isNaN(d.getTime()) ? 'Date TBC'
-    : d.toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'short' });
-  const statusLabel = match.status === 'LIVE' ? 'LIVE' : match.status === 'FINISHED' ? (match.pens ? 'Pens' : match.extraTime ? 'AET' : 'FT') : dateLabel;
+  const hasDate = !Number.isNaN(d.getTime());
+  const dateLabel = hasDate ? d.toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'short' }) : 'Date TBC';
+  const timeLabel = hasDate ? d.toLocaleTimeString('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' }) : '';
+  const kickoffLabel = timeLabel ? `${dateLabel} · ${timeLabel}` : dateLabel;
+  const statusLabel = match.status === 'LIVE' ? 'LIVE' : match.status === 'FINISHED' ? (match.pens ? 'Pens' : match.extraTime ? 'AET' : 'FT') : kickoffLabel;
+  const venueHtml = match.venue ? `<div class="bk-venue">📍 ${escapeHtml(shortVenue(match.venue))}</div>` : '';
   return `<article class="bk-match ${match.status === 'LIVE' ? 'bk-live' : ''}">
     <div class="bk-meta"><span>M${match.matchId ?? matchId}</span><span>${escapeHtml(statusLabel)}</span></div>
     ${bracketTeamRow(match, 'home')}
     ${bracketTeamRow(match, 'away')}
+    ${venueHtml}
   </article>`;
 }
 
-function renderKnockout() {
+function renderRaceSection(people) {
+  if (!people.length) return '';
+  const topScore = people[0].points;
+  const stillIn = people.filter(person => !person.knockedOut || person.points === topScore);
+  const out = people.filter(person => person.knockedOut && person.points < topScore);
+
+  const row = person => `<div class="race-row">
+    <span class="race-points">${person.points}<span>pts</span></span>
+    <span class="race-name">${escapeHtml(person.participant)}${person.knockedOut ? '<span class="race-note">no teams left</span>' : ''}</span>
+    <span class="race-teams">${person.teams.map(team => `<span class="${team.eliminated ? 'race-flag-out' : ''}">${flagMarkup(team.code, team.name)}</span>`).join('')}</span>
+  </div>`;
+
+  return `<section class="panel">
+    <div class="section-title"><h2>Who can still win?</h2><p>Out completely = both teams eliminated and not top of the pot</p></div>
+    <div class="race-grid">
+      <div class="race-col"><div class="race-col-title"><span>Still in the running</span><span>${stillIn.length}</span></div>${stillIn.map(row).join('')}</div>
+      <div class="race-col race-out"><div class="race-col-title"><span>Out completely</span><span>${out.length}</span></div>${out.map(row).join('') || '<div class="race-row race-empty">Nobody is out yet</div>'}</div>
+    </div>
+  </section>`;
+}
+
+function renderKnockout(people) {
   const byId = new Map(state.matches.filter(m => m.matchId !== null).map(m => [m.matchId, m]));
   const knockoutLoaded = [...byId.keys()].some(id => id >= 73);
 
@@ -572,23 +636,26 @@ function renderKnockout() {
     ? `<div class="champion-banner">🏆 ${escapeHtml(championName)} are world champions${state.teamOwner[championName] ? ` — ${escapeHtml(state.teamOwner[championName])} takes the pot!` : ''}</div>`
     : '';
 
+  const thirdPlace = byId.get(THIRD_PLACE_MATCH) || null;
+  const thirdPlaceHtml = `<div class="bracket-third-inline">
+      <span class="bracket-third-tag">3rd place</span>
+      ${bracketMatchCard(thirdPlace, THIRD_PLACE_MATCH)}
+    </div>`;
+
+  const semiColumnIndex = BRACKET_ROUND_TITLES.indexOf('Semi-finals');
   const columns = bracketColumns().map((matchIds, index) => `
     <div class="bracket-round">
       <h3 class="bracket-round-title">${BRACKET_ROUND_TITLES[index] || ''}</h3>
       <div class="bracket-matches">${matchIds.map(id => bracketMatchCard(byId.get(id), id)).join('')}</div>
+      ${index === semiColumnIndex ? thirdPlaceHtml : ''}
     </div>`).join('');
-
-  const thirdPlace = byId.get(THIRD_PLACE_MATCH);
-  const thirdPlaceHtml = thirdPlace
-    ? `<div class="bracket-third"><h3 class="bracket-round-title">Third-place play-off</h3>${bracketMatchCard(thirdPlace, THIRD_PLACE_MATCH)}</div>`
-    : '';
 
   return `<section class="panel">
     <div class="section-title"><h2>Knockout bracket</h2><p>Winners advance right — extra time and penalties included</p></div>
     ${championBanner}
     <div class="bracket-scroll"><div class="bracket">${columns}</div></div>
-    ${thirdPlaceHtml}
-  </section>`;
+  </section>
+  ${renderRaceSection(people)}`;
 }
 
 function setHtml(id, html) {
@@ -619,7 +686,7 @@ function render(errors = []) {
   setHtml('mostLikely', likely ? `<div class="metric">${likely.probability.toFixed(1)}%</div><div class="sub">${likely.participant}</div><p>Combined outright probability.</p>` : '<p>Add probabilities to probabilities.csv</p>');
 
   setHtml('detailedLeaderboard', renderDetailedLeaderboard(people));
-  setHtml('tab-knockout', renderKnockout());
+  setHtml('tab-knockout', renderKnockout(people));
 
   const results = state.matches
     .filter(match => ['FINISHED', 'LIVE'].includes(match.status) && match.homeScore !== null && match.awayScore !== null)

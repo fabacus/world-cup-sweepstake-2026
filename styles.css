@@ -199,6 +199,31 @@
 .bk-winner .bk-owner{color:var(--ink)}
 .bk-tbd .bk-name{opacity:.5;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
 .bk-empty{opacity:.6}
-.bracket-third{margin-top:26px;max-width:246px}
-.bracket-third .bracket-round-title{margin-bottom:12px}
+.bk-venue{border-top:2px dashed var(--ink);padding:5px 9px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;opacity:.65;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bracket-third-inline{display:flex;align-items:stretch;gap:8px;margin-top:16px}
+.bracket-third-inline .bk-match{flex:1;min-width:0}
+.bracket-third-tag{writing-mode:vertical-rl;transform:rotate(180deg);background:var(--ink);color:var(--paper);font-size:10px;font-weight:1000;letter-spacing:.14em;text-transform:uppercase;padding:8px 3px;text-align:center;flex:0 0 auto}
 @media(max-width:900px){.bracket{gap:16px}.bracket-round{width:225px}}
+
+/* Knocked-out tags on the leaderboard */
+.lb-out-tag{display:inline-block;background:var(--red);color:#fff;font-size:11px;font-weight:1000;text-transform:uppercase;letter-spacing:.08em;padding:3px 8px;margin-left:10px;vertical-align:middle;transform:rotate(-2deg)}
+.lb-row-out{opacity:.55}
+.lb-row-out .flag-wrap{filter:grayscale(1)}
+.lb-mini-out{display:inline-block;background:var(--red);color:#fff;font-size:9px;font-weight:1000;text-transform:uppercase;letter-spacing:.08em;padding:2px 5px;margin-left:7px;vertical-align:middle}
+
+/* Who can still win — knockout tab split */
+.race-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+.race-col{background:#fff8df;border:3px solid var(--ink);box-shadow:4px 4px 0 var(--ink)}
+.race-col-title{display:flex;justify-content:space-between;gap:10px;background:var(--green);color:#fff;font-size:13px;font-weight:1000;text-transform:uppercase;letter-spacing:.1em;padding:10px 13px}
+.race-out .race-col-title{background:var(--red)}
+.race-row{display:flex;align-items:center;gap:11px;padding:9px 13px;border-top:2px dashed var(--ink)}
+.race-points{font-size:17px;font-weight:1000;line-height:1;min-width:44px;white-space:nowrap}
+.race-points span{font-size:10px;font-weight:800;opacity:.6;margin-left:2px;text-transform:uppercase}
+.race-name{flex:1;font-weight:900;font-size:15px;min-width:0}
+.race-note{display:inline-block;background:var(--ink);color:#fff;font-size:9px;font-weight:1000;text-transform:uppercase;letter-spacing:.06em;padding:2px 5px;margin-left:8px;vertical-align:middle}
+.race-teams{display:flex;gap:6px;flex:0 0 auto}
+.race-teams .flag-wrap{width:28px;height:20px;border-width:2px}
+.race-teams .flag-emoji{font-size:14px}
+.race-flag-out .flag-wrap{filter:grayscale(1);opacity:.45}
+.race-empty{font-weight:800;opacity:.6}
+@media(max-width:700px){.race-grid{grid-template-columns:1fr}}
