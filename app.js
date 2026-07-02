@@ -464,7 +464,6 @@ function render(errors = []) {
   const { stats, people } = compute(state.matches, state.odds);
   const hasPeople = people.length > 0;
 
-  setText('lastUpdated', `Updated ${formatDateOnly(CONFIG.displayToday)} at ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`);
   setText('dataSource', errors.length ? `Check CSV files: ${errors.join(' | ')}` : '');
   setText('potLeader', hasPeople && people[0].points > 0 ? `${people[0].participant} leads` : 'No points yet');
 
