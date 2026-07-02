@@ -5,8 +5,7 @@ const CONFIG = {
   matchesCsv: '/.netlify/functions/openfootball-matches',
   redCardsCsv: '/.netlify/functions/red-cards',
   probabilitiesCsv: '/.netlify/functions/odds',
-  refreshMs: 60 * 1000,
-  displayToday: '2026-06-11T12:00:00Z'
+  refreshMs: 60 * 1000
 };
 
 const FALLBACK_CSV = {
@@ -203,17 +202,36 @@ function normalizeMatches(rows) {
     const utcDate = parseDateTime(row.datetime || row.date_time || row.kickoff || row.date || row.time || '');
     const homeRed = numberOrZero(row.home_red_cards || row.home_red || row.red_cards_home || row.home_rc);
     const awayRed = numberOrZero(row.away_red_cards || row.away_red || row.red_cards_away || row.away_rc);
+    const homePens = numberOrNull(row.home_pens);
+    const awayPens = numberOrNull(row.away_pens);
 
     return {
+      matchId: numberOrNull(row.match_id),
+      stage: row.stage || '',
       home,
       away,
       homeScore,
       awayScore,
+      extraTime: numberOrZero(row.extra_time) === 1,
+      pens: homePens !== null && awayPens !== null ? { home: homePens, away: awayPens } : null,
       status,
       utcDate,
       redCards: { [home]: homeRed, [away]: awayRed }
     };
   }).filter(match => match.home && match.away);
+}
+
+function isKnockoutStage(stage) {
+  return Boolean(stage) && stage !== 'Group stage';
+}
+
+// Returns 'home' | 'away' | null for a finished match, counting penalty shoot-outs
+function matchWinner(match) {
+  if (match.status !== 'FINISHED' || match.homeScore === null || match.awayScore === null) return null;
+  if (match.homeScore > match.awayScore) return 'home';
+  if (match.awayScore > match.homeScore) return 'away';
+  if (match.pens) return match.pens.home > match.pens.away ? 'home' : 'away';
+  return null;
 }
 
 function normalizeRedCards(rows) {
@@ -325,6 +343,15 @@ function compute(matches, odds) {
       home.draws += 1;
       away.draws += 1;
     }
+
+    if (isKnockoutStage(match.stage)) {
+      const winnerSide = matchWinner(match);
+      const winner = winnerSide === 'home' ? home : winnerSide === 'away' ? away : null;
+      if (winner) {
+        if (match.stage === 'Final') winner.points += SCORING.champion;
+        else if (match.stage !== 'Third-place match') winner.points += SCORING.knockoutProgress;
+      }
+    }
   }
 
   const people = state.participants.map(person => {
@@ -382,22 +409,41 @@ function formatDateOnly(value) {
   return d.toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+// Openfootball uses "W83"/"L101" placeholders for undecided knockout slots
+function placeholderLabel(teamName) {
+  const m = String(teamName || '').match(/^([WL])(\d+)$/);
+  if (!m) return null;
+  return `${m[1] === 'W' ? 'Winner' : 'Loser'} of M${m[2]}`;
+}
+
 function teamBlock(teamName) {
+  const placeholder = placeholderLabel(teamName);
+  if (placeholder) {
+    return `<span class="team-side"><span class="country tbd-country">TBC</span><span class="colleague">${escapeHtml(placeholder)}</span></span>`;
+  }
   const code = state.teamCode[teamName] || '';
   const owner = state.teamOwner[teamName] || 'Unassigned/TBC';
   return `<span class="team-side"><span class="country">${escapeHtml(teamName)}</span>${flagMarkup(code, teamName)}<span class="colleague">${escapeHtml(owner)}</span></span>`;
 }
 
+function scoreNote(match) {
+  if (match.pens) return `${match.pens.home}–${match.pens.away} pens`;
+  if (match.extraTime) return 'after extra time';
+  return '';
+}
+
 function renderMatch(match, upcoming = false) {
+  const note = scoreNote(match);
   const scoreOrTime = upcoming
     ? `<span class="fixture-time"><span>Kick-off</span>${formatDateTime(match.utcDate)}</span>`
-    : `<b class="score-number">${match.homeScore}-${match.awayScore}</b>`;
+    : `<span class="score-wrap"><b class="score-number">${match.homeScore}-${match.awayScore}</b>${note ? `<span class="score-note">${escapeHtml(note)}</span>` : ''}</span>`;
   const statusLabel = match.status === 'LIVE' ? 'Ongoing' : match.status === 'FINISHED' ? 'Finished' : 'Scheduled';
+  const stageLabel = isKnockoutStage(match.stage) ? ` · ${escapeHtml(match.stage)}` : '';
   const homeReds = match.redCards?.[match.home] || 0;
   const awayReds = match.redCards?.[match.away] || 0;
 
   return `<article class="match ${upcoming ? 'upcoming-match' : 'result-match'} ${match.status === 'LIVE' ? 'live-match' : ''}">
-    <div class="match-meta">${upcoming ? 'Upcoming fixture' : formatDateOnly(match.utcDate)} · ${escapeHtml(statusLabel)}</div>
+    <div class="match-meta">${upcoming ? 'Upcoming fixture' : formatDateOnly(match.utcDate)}${stageLabel} · ${escapeHtml(statusLabel)}</div>
     <div class="score">
       ${teamBlock(match.home)}
       ${scoreOrTime}
@@ -450,6 +496,101 @@ function renderDetailedLeaderboard(people) {
   }).join('');
 }
 
+// Official FIFA 2026 bracket: which two matches feed each knockout tie.
+// Verified against openfootball placeholders (e.g. M93 = W83 v W84) and
+// resolved results (e.g. M89 Paraguay v France = winners of M74 and M77).
+const KNOCKOUT_FEEDS = {
+  89: [74, 77], 90: [73, 75], 91: [76, 78], 92: [79, 80],
+  93: [83, 84], 94: [81, 82], 95: [86, 88], 96: [85, 87],
+  97: [89, 90], 98: [93, 94], 99: [91, 92], 100: [95, 96],
+  101: [97, 98], 102: [99, 100],
+  104: [101, 102]
+};
+const THIRD_PLACE_MATCH = 103;
+const FINAL_MATCH = 104;
+const BRACKET_ROUND_TITLES = ['Round of 32', 'Round of 16', 'Quarter-finals', 'Semi-finals', 'Final'];
+
+// Walk back from the final so every column lists matches in bracket order,
+// with each pair of feeder matches adjacent to the tie they feed.
+function bracketColumns() {
+  const columns = [[FINAL_MATCH]];
+  while (true) {
+    const feeders = columns[0].flatMap(id => KNOCKOUT_FEEDS[id] || []);
+    if (!feeders.length) break;
+    columns.unshift(feeders);
+  }
+  return columns;
+}
+
+function bracketTeamRow(match, side) {
+  const name = side === 'home' ? match.home : match.away;
+  const score = side === 'home' ? match.homeScore : match.awayScore;
+  const pens = match.pens ? (side === 'home' ? match.pens.home : match.pens.away) : null;
+  const placeholder = placeholderLabel(name);
+  const winner = matchWinner(match) === side;
+
+  if (placeholder) {
+    return `<div class="bk-team bk-tbd"><span class="bk-flag-slot"></span><span class="bk-copy"><span class="bk-name">${escapeHtml(placeholder)}</span></span><span class="bk-score"></span></div>`;
+  }
+
+  const owner = state.teamOwner[name];
+  const scoreHtml = score === null ? '' : `${score}${pens !== null ? `<span class="bk-pens">(${pens})</span>` : ''}`;
+  return `<div class="bk-team ${winner ? 'bk-winner' : ''}">
+    ${flagMarkup(state.teamCode[name] || '', name)}
+    <span class="bk-copy"><span class="bk-name">${escapeHtml(name)}</span>${owner ? `<span class="bk-owner">${escapeHtml(owner)}</span>` : ''}</span>
+    <span class="bk-score">${scoreHtml}</span>
+  </div>`;
+}
+
+function bracketMatchCard(match, matchId) {
+  if (!match) {
+    return `<article class="bk-match bk-empty"><div class="bk-meta"><span>M${matchId}</span><span>TBC</span></div></article>`;
+  }
+  const d = parseMatchDate(match.utcDate);
+  const dateLabel = Number.isNaN(d.getTime()) ? 'Date TBC'
+    : d.toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'short' });
+  const statusLabel = match.status === 'LIVE' ? 'LIVE' : match.status === 'FINISHED' ? (match.pens ? 'Pens' : match.extraTime ? 'AET' : 'FT') : dateLabel;
+  return `<article class="bk-match ${match.status === 'LIVE' ? 'bk-live' : ''}">
+    <div class="bk-meta"><span>M${match.matchId ?? matchId}</span><span>${escapeHtml(statusLabel)}</span></div>
+    ${bracketTeamRow(match, 'home')}
+    ${bracketTeamRow(match, 'away')}
+  </article>`;
+}
+
+function renderKnockout() {
+  const byId = new Map(state.matches.filter(m => m.matchId !== null).map(m => [m.matchId, m]));
+  const knockoutLoaded = [...byId.keys()].some(id => id >= 73);
+
+  if (!knockoutLoaded) {
+    return '<section class="panel"><div class="section-title"><h2>Knockout bracket</h2></div><p class="empty-state">Knockout fixtures are not available yet</p></section>';
+  }
+
+  const final = byId.get(FINAL_MATCH);
+  const championSide = final ? matchWinner(final) : null;
+  const championName = championSide ? (championSide === 'home' ? final.home : final.away) : null;
+  const championBanner = championName
+    ? `<div class="champion-banner">🏆 ${escapeHtml(championName)} are world champions${state.teamOwner[championName] ? ` — ${escapeHtml(state.teamOwner[championName])} takes the pot!` : ''}</div>`
+    : '';
+
+  const columns = bracketColumns().map((matchIds, index) => `
+    <div class="bracket-round">
+      <h3 class="bracket-round-title">${BRACKET_ROUND_TITLES[index] || ''}</h3>
+      <div class="bracket-matches">${matchIds.map(id => bracketMatchCard(byId.get(id), id)).join('')}</div>
+    </div>`).join('');
+
+  const thirdPlace = byId.get(THIRD_PLACE_MATCH);
+  const thirdPlaceHtml = thirdPlace
+    ? `<div class="bracket-third"><h3 class="bracket-round-title">Third-place play-off</h3>${bracketMatchCard(thirdPlace, THIRD_PLACE_MATCH)}</div>`
+    : '';
+
+  return `<section class="panel">
+    <div class="section-title"><h2>Knockout bracket</h2><p>Winners advance right — extra time and penalties included</p></div>
+    ${championBanner}
+    <div class="bracket-scroll"><div class="bracket">${columns}</div></div>
+    ${thirdPlaceHtml}
+  </section>`;
+}
+
 function setHtml(id, html) {
   const element = document.getElementById(id);
   if (element) element.innerHTML = html;
@@ -478,6 +619,7 @@ function render(errors = []) {
   setHtml('mostLikely', likely ? `<div class="metric">${likely.probability.toFixed(1)}%</div><div class="sub">${likely.participant}</div><p>Combined outright probability.</p>` : '<p>Add probabilities to probabilities.csv</p>');
 
   setHtml('detailedLeaderboard', renderDetailedLeaderboard(people));
+  setHtml('tab-knockout', renderKnockout());
 
   const results = state.matches
     .filter(match => ['FINISHED', 'LIVE'].includes(match.status) && match.homeScore !== null && match.awayScore !== null)

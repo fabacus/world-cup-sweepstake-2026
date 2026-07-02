@@ -168,3 +168,37 @@
   .lb-points{font-size:24px}
   .lb-stat{font-size:14px}
 }
+
+/* Penalty / extra-time note under result scores */
+.score-wrap{display:flex;flex-direction:column;align-items:center;gap:7px;min-width:0}
+.score-note{font-size:12px;font-weight:1000;text-transform:uppercase;letter-spacing:.06em;background:var(--ink);color:#fff;padding:4px 8px;white-space:nowrap}
+.tbd-country{opacity:.45}
+
+/* Knockout bracket */
+.champion-banner{background:var(--orange);border:4px solid var(--ink);box-shadow:var(--shadow);padding:16px 20px;margin-bottom:22px;font-size:clamp(18px,2.4vw,26px);font-weight:1000;text-transform:uppercase;letter-spacing:-.02em}
+.bracket-scroll{overflow-x:auto;padding:4px 4px 16px}
+.bracket{display:flex;gap:24px;min-width:max-content;align-items:stretch}
+.bracket-round{display:flex;flex-direction:column;width:246px;flex:0 0 auto}
+.bracket-round-title{margin:0 0 12px;font-size:13px;font-weight:1000;text-transform:uppercase;letter-spacing:.1em;background:var(--ink);color:var(--paper);padding:8px 10px;text-align:center}
+.bracket-matches{flex:1;display:flex;flex-direction:column;justify-content:space-around;gap:12px}
+.bk-match{background:#fff8df;border:3px solid var(--ink);box-shadow:4px 4px 0 var(--ink)}
+.bk-meta{display:flex;justify-content:space-between;background:var(--ink);color:#fff;font-size:11px;font-weight:1000;text-transform:uppercase;letter-spacing:.08em;padding:4px 9px}
+.bk-live .bk-meta{background:var(--orange);color:var(--ink)}
+.bk-live{outline:3px solid var(--orange);outline-offset:2px}
+.bk-team{display:flex;align-items:center;gap:9px;padding:8px 9px;min-height:46px}
+.bk-team + .bk-team{border-top:2px dashed var(--ink)}
+.bk-team .flag-wrap{width:32px;height:23px;border-width:2px;flex:0 0 auto}
+.bk-team .flag-emoji{font-size:17px}
+.bk-flag-slot{width:32px;height:23px;border:2px dashed rgba(23,18,14,.35);flex:0 0 auto}
+.bk-copy{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.bk-name{font-size:14px;font-weight:1000;line-height:1.1;letter-spacing:-.01em;overflow-wrap:anywhere}
+.bk-owner{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:var(--blue)}
+.bk-score{font-size:18px;font-weight:1000;line-height:1;min-width:20px;text-align:right;white-space:nowrap}
+.bk-pens{font-size:11px;font-weight:900;opacity:.65;margin-left:3px}
+.bk-winner{background:var(--orange)}
+.bk-winner .bk-owner{color:var(--ink)}
+.bk-tbd .bk-name{opacity:.5;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.bk-empty{opacity:.6}
+.bracket-third{margin-top:26px;max-width:246px}
+.bracket-third .bracket-round-title{margin-bottom:12px}
+@media(max-width:900px){.bracket{gap:16px}.bracket-round{width:225px}}

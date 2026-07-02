@@ -39,22 +39,33 @@ function csvCell(v) {
   return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
+function scorePair(score, key) {
+  return (score && Array.isArray(score[key]) && score[key].length === 2) ? score[key] : null;
+}
+
 function matchesToCsv(matches) {
-  const headers = 'match_id,stage,group,datetime,status,home,away,home_score,away_score,home_red_cards,away_red_cards,venue';
+  const headers = 'match_id,stage,group,datetime,status,home,away,home_score,away_score,extra_time,home_pens,away_pens,home_red_cards,away_red_cards,venue';
   const rows = [headers];
 
   matches.forEach((match, i) => {
-    const hasScore = match.score && Array.isArray(match.score.ft) && match.score.ft.length === 2;
+    const ft = scorePair(match.score, 'ft');
+    const et = scorePair(match.score, 'et');
+    const pens = scorePair(match.score, 'p');
+    // Knockout ties are decided after extra time, so report the ET score as final
+    const finalScore = et || ft;
     rows.push([
-      i + 1,
+      match.num || i + 1,
       csvCell(mapStage(match.round)),
       csvCell(mapGroup(match.group)),
       csvCell(toUtcDatetime(match.date, match.time)),
-      hasScore ? 'finished' : 'scheduled',
+      finalScore ? 'finished' : 'scheduled',
       csvCell(match.team1 || ''),
       csvCell(match.team2 || ''),
-      hasScore ? match.score.ft[0] : '',
-      hasScore ? match.score.ft[1] : '',
+      finalScore ? finalScore[0] : '',
+      finalScore ? finalScore[1] : '',
+      et ? 1 : 0,
+      pens ? pens[0] : '',
+      pens ? pens[1] : '',
       0,
       0,
       csvCell(match.ground || '')
